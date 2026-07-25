@@ -1,0 +1,6 @@
+{
+  "name": "Central WhatsApp - Evolution API",
+  "description": "Sistema de multiatendimento via WhatsApp integrado à Evolution API, com gestão de múltiplos atendentes, distribuição por setores, respostas rápidas e IA Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
