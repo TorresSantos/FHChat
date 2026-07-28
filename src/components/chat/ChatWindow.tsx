@@ -17,7 +17,11 @@ import {
   User,
   Sparkles,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Receipt,
+  Copy,
+  Send,
+  UserCheck
 } from 'lucide-react';
 import { Ticket, Message, Department, Attendant, QuickResponse } from '../../types';
 import { MessageInput } from './MessageInput';
@@ -35,6 +39,7 @@ interface ChatWindowProps {
   onToggleCustomerSidebar: () => void;
   showCustomerSidebar: boolean;
   onToggleWaitingStatus?: (ticketId: string) => void;
+  onAcceptTicket?: (ticketId: string) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -49,13 +54,105 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onOpenCloseModal,
   onToggleCustomerSidebar,
   showCustomerSidebar,
-  onToggleWaitingStatus
+  onToggleWaitingStatus,
+  onAcceptTicket
 }) => {
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [showProtocolMenu, setShowProtocolMenu] = useState(false);
+  const [copiedProtocol, setCopiedProtocol] = useState(false);
+  const [sentProtocol, setSentProtocol] = useState(false);
 
   const dept = departments.find((d) => d.id === ticket.departmentId);
   const assignedAgent = attendants.find((a) => a.id === ticket.assignedAttendantId);
+
+  const protocolNumber =
+    ticket.protocol ||
+    `PROT-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${ticket.id.replace(/\D/g, '') || '101'}`;
+
+  // If ticket is pending, hide conversation until accepted
+  if (ticket.status === 'pending') {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-gray-950 text-center space-y-6 relative overflow-y-auto">
+        <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center shadow-lg border border-amber-500/20 animate-bounce" style={{ animationDuration: '3s' }}>
+          <Clock className="w-10 h-10" />
+        </div>
+
+        <div className="max-w-md space-y-2">
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 uppercase tracking-wider">
+            <Clock className="w-3.5 h-3.5" /> Chamado Pendente na Fila
+          </div>
+          <h2 className="text-xl font-extrabold text-gray-900 dark:text-white">
+            Atendimento Aguardando Aceite
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            As mensagens deste cliente ficam ocultas até que você aceite o atendimento. Ao clicar no botão abaixo, o chamado será atribuído a você.
+          </p>
+        </div>
+
+        {/* Customer Summary Box */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 w-full max-w-sm shadow-xs space-y-4 text-left">
+          <div className="flex items-center space-x-3">
+            <img
+              src={
+                ticket.contact.avatar ||
+                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
+              }
+              alt={ticket.contact.name}
+              className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+            />
+            <div>
+              <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                {ticket.contact.name}
+              </h4>
+              <p className="text-xs font-mono text-gray-500">{ticket.contact.phone}</p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-gray-100 dark:border-gray-800 grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-[10px] text-gray-400 uppercase font-bold block">Protocolo:</span>
+              <span className="font-mono font-bold text-emerald-500">{protocolNumber}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-gray-400 uppercase font-bold block">Fila / Setor:</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">
+                {dept ? dept.name : 'Fila Geral'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <button
+          type="button"
+          onClick={() => onAcceptTicket && onAcceptTicket(ticket.id)}
+          className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm rounded-2xl flex items-center gap-2.5 shadow-xl shadow-emerald-950/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        >
+          <UserCheck className="w-5 h-5" />
+          <span>Aceitar Atendimento</span>
+        </button>
+      </div>
+    );
+  }
+
+  const getProtocolFormattedMessage = () => {
+    return `📋 *PROTOCOLO DE ATENDIMENTO*\n\nOlá, *${ticket.contact.name}*!\nO número do seu protocolo de atendimento é:\n\n🎫 *Protocolo:* \`${protocolNumber}\`\n📅 *Data:* ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}\n👤 *Atendente:* ${assignedAgent ? assignedAgent.name : 'Equipe de Suporte'}\n🏢 *Setor:* ${dept ? dept.name : 'Atendimento'}\n\nGuardamos este registro com carinho para seu acompanhamento!`;
+  };
+
+  const handleSendProtocol = () => {
+    onSendMessage(getProtocolFormattedMessage(), false);
+    setSentProtocol(true);
+    setShowProtocolMenu(false);
+    setTimeout(() => setSentProtocol(false), 2500);
+  };
+
+  const handleCopyProtocol = () => {
+    navigator.clipboard.writeText(getProtocolFormattedMessage());
+    setCopiedProtocol(true);
+    setShowProtocolMenu(false);
+    setTimeout(() => setCopiedProtocol(false), 2500);
+  };
 
   const togglePlayAudio = (id: string) => {
     if (playingAudioId === id) {
@@ -119,6 +216,62 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
         {/* Right Action Bar */}
         <div className="flex items-center space-x-2">
+          {/* Protocol Button Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowProtocolMenu(!showProtocolMenu)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs border ${
+                sentProtocol || copiedProtocol
+                  ? 'bg-emerald-500 text-white border-emerald-400'
+                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+              }`}
+              title="Opções de Protocolo de Atendimento (Enviar ao cliente ou copiar)"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {sentProtocol ? 'Enviado! ✓' : copiedProtocol ? 'Copiado! ✓' : 'Protocolo'}
+              </span>
+            </button>
+
+            {showProtocolMenu && (
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-2 z-50 text-xs space-y-1">
+                <div className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                  <span className="font-bold text-gray-500 dark:text-gray-400 text-[10px] uppercase">
+                    Protocolo de Atendimento
+                  </span>
+                  <span className="font-mono font-bold text-emerald-500 text-[10px]">
+                    {protocolNumber}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendProtocol}
+                  className="w-full text-left p-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-xl text-gray-800 dark:text-gray-200 font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5 text-emerald-500" />
+                  <div>
+                    <span className="block text-xs">Enviar no WhatsApp</span>
+                    <span className="block text-[10px] font-normal text-gray-400">Envia mensagem formatada com protocolo</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyProtocol}
+                  className="w-full text-left p-2 hover:bg-purple-50 dark:hover:bg-purple-950/60 rounded-xl text-gray-800 dark:text-gray-200 font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5 text-purple-500" />
+                  <div>
+                    <span className="block text-xs">Copiar Texto do Protocolo</span>
+                    <span className="block text-[10px] font-normal text-gray-400">Copia o texto completo para colar</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Em Espera Toggle Button */}
           <button
             onClick={() => onToggleWaitingStatus && onToggleWaitingStatus(ticket.id)}

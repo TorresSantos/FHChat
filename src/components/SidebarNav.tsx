@@ -9,7 +9,8 @@ import {
   PlusCircle,
   Smartphone,
   Layers,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Role } from '../types';
 
@@ -21,6 +22,7 @@ export type NavTab =
   | 'analytics'
   | 'connections'
   | 'queues'
+  | 'reports'
   | 'evolution'
   | 'attendants';
 
@@ -87,6 +89,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Métricas & IA',
       icon: BarChart2,
       allowed: true
+    },
+    {
+      id: 'reports' as NavTab,
+      label: 'Relatórios (Admin)',
+      icon: FileSpreadsheet,
+      allowed: userRole === 'admin'
     },
     {
       id: 'evolution' as NavTab,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Filter,
@@ -10,7 +10,8 @@ import {
   AlertCircle,
   MessageSquare,
   Smartphone,
-  Layers
+  Layers,
+  UserCheck
 } from 'lucide-react';
 import { Ticket, Department, Attendant, TicketStatus, Queue, WhatsAppConnection } from '../../types';
 
@@ -23,6 +24,7 @@ interface ChatListProps {
   currentAttendant: Attendant;
   selectedTicketId: string | null;
   onSelectTicket: (ticketId: string) => void;
+  onAcceptTicket?: (ticketId: string) => void;
 }
 
 type TabType = 'mine' | 'pending' | 'waiting' | 'resolved';
@@ -35,7 +37,8 @@ export const ChatList: React.FC<ChatListProps> = ({
   connections = [],
   currentAttendant,
   selectedTicketId,
-  onSelectTicket
+  onSelectTicket,
+  onAcceptTicket
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('mine');
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,6 +143,26 @@ export const ChatList: React.FC<ChatListProps> = ({
       setActiveTab('mine');
     }
   }, [waitingCount, activeTab]);
+
+  // Track previous status of selected ticket to switch tab to 'mine' when accepted
+  const prevSelectedTicketStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (selectedTicketId) {
+      const selectedTicket = tickets.find((t) => t.id === selectedTicketId);
+      if (
+        selectedTicket &&
+        prevSelectedTicketStatusRef.current === 'pending' &&
+        selectedTicket.status === 'in_progress' &&
+        selectedTicket.assignedAttendantId === currentAttendant.id
+      ) {
+        setActiveTab('mine');
+      }
+      prevSelectedTicketStatusRef.current = selectedTicket ? selectedTicket.status : null;
+    } else {
+      prevSelectedTicketStatusRef.current = null;
+    }
+  }, [selectedTicketId, tickets, currentAttendant.id]);
 
   return (
     <div id="chat-list-panel" className="w-full md:w-80 lg:w-96 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full shrink-0">
@@ -401,12 +424,31 @@ export const ChatList: React.FC<ChatListProps> = ({
                       )}
                     </div>
 
-                    {/* Unread badge */}
-                    {ticket.unreadCount > 0 && (
-                      <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full shrink-0">
-                        {ticket.unreadCount}
-                      </span>
-                    )}
+                    {/* Right side badges / Aceitar button */}
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      {ticket.status === 'pending' && onAcceptTicket && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTab('mine');
+                            onAcceptTicket(ticket.id);
+                          }}
+                          className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                          title="Aceitar este atendimento e assumir o chamado"
+                        >
+                          <UserCheck className="w-3 h-3" />
+                          <span>Aceitar</span>
+                        </button>
+                      )}
+
+                      {/* Unread badge */}
+                      {ticket.unreadCount > 0 && (
+                        <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                          {ticket.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

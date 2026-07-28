@@ -14,6 +14,7 @@ import { AttendantsManagement } from './components/attendants/AttendantsManageme
 import { QuickRepliesManager } from './components/quickReplies/QuickRepliesManager';
 import { ContactsManager } from './components/contacts/ContactsManager';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
+import { ReportsManager } from './components/reports/ReportsManager';
 import { ConnectionsManagement } from './components/connections/ConnectionsManagement';
 import { QueuesManagement } from './components/queues/QueuesManagement';
 import { CalendarManager } from './components/calendar/CalendarManager';
@@ -513,6 +514,8 @@ export default function App() {
 
     const newTicketId = 'tick-' + Date.now();
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const today = new Date();
+    const protocolStr = `PROT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`;
 
     const newTicket: Ticket = {
       id: newTicketId,
@@ -521,6 +524,7 @@ export default function App() {
       departmentId,
       connectionId: connectionId || connections[0]?.id,
       assignedAttendantId: currentAttendant.id,
+      protocol: protocolStr,
       status: 'in_progress',
       priority: 'medium',
       tags: ['Atendimento'],
@@ -566,6 +570,22 @@ export default function App() {
       handleCreateNewChat(contact.name, contact.phone, departments[0]?.id || 'dept-vendas');
     }
     setActiveTab('chats');
+  };
+
+  const handleAcceptTicket = (ticketId: string) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId
+          ? {
+              ...t,
+              status: 'in_progress',
+              assignedAttendantId: currentAttendant.id,
+              updatedAt: new Date().toISOString()
+            }
+          : t
+      )
+    );
+    setSelectedTicketId(ticketId);
   };
 
   const handleUpdatePriority = (ticketId: string, priority: Priority) => {
@@ -682,6 +702,7 @@ export default function App() {
               currentAttendant={currentAttendant}
               selectedTicketId={selectedTicketId}
               onSelectTicket={handleSelectTicket}
+              onAcceptTicket={handleAcceptTicket}
             />
 
             {/* Main Active Chat Area */}
@@ -699,6 +720,7 @@ export default function App() {
                 onToggleCustomerSidebar={() => setShowCustomerSidebar(!showCustomerSidebar)}
                 showCustomerSidebar={showCustomerSidebar}
                 onToggleWaitingStatus={handleToggleWaitingStatus}
+                onAcceptTicket={handleAcceptTicket}
               />
             ) : (
               <div className="flex-1 bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center text-center p-8 space-y-3">
@@ -715,7 +737,7 @@ export default function App() {
             )}
 
             {/* Right Customer Detail Drawer */}
-            {activeTicket && showCustomerSidebar && (
+            {activeTicket && activeTicket.status !== 'pending' && showCustomerSidebar && (
               <CustomerSidebar
                 ticket={activeTicket}
                 allTickets={tickets}
@@ -734,6 +756,7 @@ export default function App() {
                 onCancelScheduledMessage={handleCancelScheduledMessage}
                 onAddReminder={handleAddReminder}
                 onToggleReminder={handleToggleReminder}
+                onSendMessage={handleSendMessage}
               />
             )}
           </main>
@@ -817,6 +840,29 @@ export default function App() {
               onSelectTicket={handleSelectTicket}
               onNavigateToChats={() => setActiveTab('chats')}
             />
+          </main>
+        )}
+
+        {activeTab === 'reports' && (
+          <main className="flex-1 overflow-y-auto">
+            {currentAttendant.role === 'admin' ? (
+              <ReportsManager
+                tickets={tickets}
+                connections={connections}
+                queues={queues}
+                attendants={attendants}
+                departments={departments}
+                onSelectTicket={(tId) => {
+                  handleSelectTicket(tId);
+                  setActiveTab('chats');
+                }}
+              />
+            ) : (
+              <div className="p-8 text-center space-y-3">
+                <p className="font-bold text-red-500">Acesso Restrito</p>
+                <p className="text-xs text-gray-500">Apenas administradores podem visualizar o relatório de protocolos.</p>
+              </div>
+            )}
           </main>
         )}
 

@@ -110,6 +110,7 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   closedAt?: string;
+  protocol?: string;
   rating?: number;
   lastMessageSnippet?: string;
   lastMessageTimestamp?: string;

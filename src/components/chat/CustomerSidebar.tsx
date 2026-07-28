@@ -21,7 +21,10 @@ import {
   Send,
   Star,
   Bell,
-  Trash2
+  Trash2,
+  Copy,
+  Check,
+  Receipt
 } from 'lucide-react';
 import { Ticket, Department, Attendant, Priority, Contact, ScheduledMessage, TicketReminder } from '../../types';
 import { EditContactModal } from '../contacts/EditContactModal';
@@ -44,6 +47,7 @@ interface CustomerSidebarProps {
   onCancelScheduledMessage?: (id: string) => void;
   onAddReminder?: (rem: TicketReminder) => void;
   onToggleReminder?: (id: string) => void;
+  onSendMessage?: (text: string, isNote?: boolean) => void;
 }
 
 export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
@@ -63,11 +67,16 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   onAddScheduledMessage,
   onCancelScheduledMessage,
   onAddReminder,
-  onToggleReminder
+  onToggleReminder,
+  onSendMessage
 }) => {
   const [newTagInput, setNewTagInput] = useState('');
   const [showTagInput, setShowTagInput] = useState(false);
   const [isEditingContact, setIsEditingContact] = useState(false);
+
+  // Protocol actions feedback
+  const [copiedProtocol, setCopiedProtocol] = useState(false);
+  const [sentProtocol, setSentProtocol] = useState(false);
 
   // Scheduled message form state
   const [showScheduleForm, setShowScheduleForm] = useState(false);
@@ -154,6 +163,29 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       case 'high': return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300';
       case 'medium': return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300';
       case 'low': return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-300';
+    }
+  };
+
+  // Protocol Helpers & Actions
+  const protocolNumber =
+    ticket.protocol ||
+    `PROT-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${ticket.id.replace(/\D/g, '') || '101'}`;
+
+  const getProtocolFormattedMessage = () => {
+    return `📋 *PROTOCOLO DE ATENDIMENTO*\n\nOlá, *${ticket.contact.name}*!\nO número do seu protocolo de atendimento é:\n\n🎫 *Protocolo:* \`${protocolNumber}\`\n📅 *Data:* ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}\n👤 *Atendente:* ${assignedAgent ? assignedAgent.name : 'Equipe de Suporte'}\n🏢 *Setor:* ${dept ? dept.name : 'Atendimento'}\n\nGuardamos este registro com carinho para seu acompanhamento!`;
+  };
+
+  const handleCopyProtocolText = () => {
+    navigator.clipboard.writeText(getProtocolFormattedMessage());
+    setCopiedProtocol(true);
+    setTimeout(() => setCopiedProtocol(false), 2500);
+  };
+
+  const handleSendProtocolMessage = () => {
+    if (onSendMessage) {
+      onSendMessage(getProtocolFormattedMessage(), false);
+      setSentProtocol(true);
+      setTimeout(() => setSentProtocol(false), 2500);
     }
   };
 
@@ -297,6 +329,70 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
               <option value="urgent">Urgente</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      {/* Protocol Section */}
+      <div className="p-4 border-b border-gray-100 dark:border-gray-800 space-y-2.5 bg-emerald-500/5 dark:bg-emerald-950/20">
+        <div className="flex items-center justify-between">
+          <h5 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Receipt className="w-4 h-4 text-emerald-500" /> Protocolo do Chamado
+          </h5>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            {protocolNumber}
+          </span>
+        </div>
+
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+          Envie ou copie o protocolo oficial de atendimento caso o cliente solicite.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleSendProtocolMessage}
+            className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs ${
+              sentProtocol
+                ? 'bg-emerald-500 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+            }`}
+            title="Enviar mensagem formatada com o protocolo no chat do cliente"
+          >
+            {sentProtocol ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Enviado!</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>Enviar Protocolo</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyProtocolText}
+            className={`py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border ${
+              copiedProtocol
+                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700'
+            }`}
+            title="Copiar texto do protocolo para a área de transferência"
+          >
+            {copiedProtocol ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-purple-400" />
+                <span>Copiado!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-purple-400" />
+                <span>Copiar Texto</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
