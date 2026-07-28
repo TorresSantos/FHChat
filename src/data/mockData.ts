@@ -45,7 +45,15 @@ export const initialQueues: Queue[] = [
     greetingMessage: 'Você foi direcionado para a fila de Vendas! Em instantes um dos nossos consultores irá te atender.',
     attendantIds: ['att-1', 'att-3'],
     isDefault: true,
-    isActive: true
+    isActive: true,
+    schedulesType: 'custom',
+    morningStart: '08:00',
+    morningEnd: '12:00',
+    afternoonStart: '13:30',
+    afternoonEnd: '18:00',
+    outOfHoursMessage: 'Nosso setor comercial atende de Segunda a Sexta das 08:00 às 18:00. Você já está registrado na nossa fila e atenderemos você assim que o expediente iniciar!',
+    lunchBreakMessage: 'Nossa equipe de vendas está em horário de almoço das 12:00 às 13:30. Sua mensagem já está salva na fila de Vendas!',
+    maxOutOfHoursNotifs: 1
   },
   {
     id: 'queue-2',
@@ -56,7 +64,11 @@ export const initialQueues: Queue[] = [
     greetingMessage: 'Você está na fila do Suporte Técnico! Por favor informe o número da sua conta ou tela do erro.',
     attendantIds: ['att-2'],
     isDefault: false,
-    isActive: true
+    isActive: true,
+    schedulesType: '24h',
+    outOfHoursMessage: '',
+    lunchBreakMessage: '',
+    maxOutOfHoursNotifs: 1
   },
   {
     id: 'queue-3',
@@ -67,7 +79,15 @@ export const initialQueues: Queue[] = [
     greetingMessage: 'Fila do Financeiro selecionada! Aguarde que nosso setor de cobrança já vai te responder.',
     attendantIds: ['att-4'],
     isDefault: false,
-    isActive: true
+    isActive: true,
+    schedulesType: 'custom',
+    morningStart: '09:00',
+    morningEnd: '12:00',
+    afternoonStart: '13:00',
+    afternoonEnd: '17:00',
+    outOfHoursMessage: 'O setor financeiro atende de Seg a Sex das 09h às 17h. Você permanece na fila do Financeiro!',
+    lunchBreakMessage: 'O setor financeiro está em pausa para almoço das 12:00 às 13:00. Você permanece em nossa fila.',
+    maxOutOfHoursNotifs: 1
   },
   {
     id: 'queue-4',
@@ -78,7 +98,8 @@ export const initialQueues: Queue[] = [
     greetingMessage: 'Aguarde um instante na fila Geral enquanto conectamos você ao próximo atendente disponível.',
     attendantIds: ['att-1', 'att-2', 'att-3', 'att-4'],
     isDefault: false,
-    isActive: true
+    isActive: true,
+    schedulesType: '24h'
   }
 ];
 

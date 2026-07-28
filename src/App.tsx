@@ -16,6 +16,7 @@ import { ContactsManager } from './components/contacts/ContactsManager';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 import { ConnectionsManagement } from './components/connections/ConnectionsManagement';
 import { QueuesManagement } from './components/queues/QueuesManagement';
+import { CalendarManager } from './components/calendar/CalendarManager';
 
 import {
   initialDepartments,
@@ -121,14 +122,21 @@ export default function App() {
     setQueues((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Scheduled Messages State (Feature #5)
+  // Scheduled Messages State
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([
     {
       id: 'sched-1',
       ticketId: 'tick-1',
-      content: 'Olá! Passando para confirmar se deu tudo certo com o seu pedido?',
+      contactId: 'c-1',
+      contactName: 'Mariana Costa',
+      contactPhone: '+55 11 98765-4321',
+      connectionId: 'conn-1',
+      connectionName: 'WhatsApp Principal',
+      connectionProvider: 'evolution',
+      content: 'Olá Mariana! Passando para confirmar se deu tudo certo com o seu pedido?',
       scheduledAt: new Date(Date.now() + 86400000).toISOString(),
       status: 'pending',
+      frequency: 'once',
       createdAt: new Date().toISOString()
     }
   ]);
@@ -163,6 +171,43 @@ export default function App() {
     setReminders((prev) =>
       prev.map((r) => (r.id === remId ? { ...r, isCompleted: !r.isCompleted } : r))
     );
+  };
+
+  // Toggle ticket waiting status
+  const handleToggleWaitingStatus = (ticketId: string) => {
+    const targetTicket = tickets.find((t) => t.id === ticketId);
+    if (!targetTicket) return;
+
+    const isCurrentlyWaiting = targetTicket.status === 'waiting';
+    const newStatus = isCurrentlyWaiting ? 'in_progress' : 'waiting';
+
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId
+          ? { ...t, status: newStatus, assignedAttendantId: t.assignedAttendantId || currentAttendant.id }
+          : t
+      )
+    );
+
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const noteMsg: Message = {
+      id: 'msg-' + Date.now(),
+      ticketId,
+      sender: 'attendant',
+      senderName: currentAttendant.name,
+      type: 'text',
+      content: !isCurrentlyWaiting
+        ? '⏳ Atendimento colocado em ESPERA (Aguardando cliente responder).'
+        : '🟢 Atendimento RETOMADO pelo atendente.',
+      timestamp: time,
+      isInternalNote: true,
+      status: 'read'
+    };
+
+    setMessages((prev) => ({
+      ...prev,
+      [ticketId]: [...(prev[ticketId] || []), noteMsg]
+    }));
   };
 
   // Authentication State
@@ -311,6 +356,7 @@ export default function App() {
             t.id === selectedTicketId
               ? {
                   ...t,
+                  status: t.status === 'waiting' ? 'in_progress' : t.status,
                   lastMessageSnippet: replyText,
                   lastMessageTimestamp: replyTime,
                   updatedAt: new Date().toISOString()
@@ -652,6 +698,7 @@ export default function App() {
                 onOpenCloseModal={() => setShowCloseModal(true)}
                 onToggleCustomerSidebar={() => setShowCustomerSidebar(!showCustomerSidebar)}
                 showCustomerSidebar={showCustomerSidebar}
+                onToggleWaitingStatus={handleToggleWaitingStatus}
               />
             ) : (
               <div className="flex-1 bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center text-center p-8 space-y-3">
@@ -689,6 +736,24 @@ export default function App() {
                 onToggleReminder={handleToggleReminder}
               />
             )}
+          </main>
+        )}
+
+        {activeTab === 'calendar' && (
+          <main className="flex-1 overflow-y-auto">
+            <CalendarManager
+              scheduledMessages={scheduledMessages}
+              connections={connections}
+              contacts={contacts}
+              quickResponses={quickResponses}
+              onAddScheduledMessage={handleAddScheduledMessage}
+              onCancelScheduledMessage={handleCancelScheduledMessage}
+              onExecuteScheduledMessage={(schedId) => {
+                setScheduledMessages((prev) =>
+                  prev.map((s) => (s.id === schedId ? { ...s, status: 'sent' } : s))
+                );
+              }}
+            />
           </main>
         )}
 

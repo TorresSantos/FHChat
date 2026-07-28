@@ -22,7 +22,10 @@ import {
   Send,
   Zap,
   HelpCircle,
-  FileText
+  FileText,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from 'lucide-react';
 import {
   BotFlow,
@@ -140,6 +143,13 @@ export const VisualBotFlowBuilder: React.FC<VisualBotFlowBuilderProps> = ({
   // Selected Node for Editing
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('node-menu');
 
+  // Canvas Zoom State
+  const [zoom, setZoom] = useState<number>(1);
+
+  const handleZoomIn = () => setZoom((prev) => Math.min(2.0, +(prev + 0.15).toFixed(2)));
+  const handleZoomOut = () => setZoom((prev) => Math.max(0.4, +(prev - 0.15).toFixed(2)));
+  const handleResetZoom = () => setZoom(1);
+
   // Dragging State
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -168,8 +178,9 @@ export const VisualBotFlowBuilder: React.FC<VisualBotFlowBuilderProps> = ({
   const handleMouseMoveCanvas = (e: React.MouseEvent) => {
     if (!draggingNodeId) return;
 
-    const dx = e.clientX - dragStartPos.current.x;
-    const dy = e.clientY - dragStartPos.current.y;
+    // Divide delta movement by zoom scale so dragging stays perfectly aligned with cursor
+    const dx = (e.clientX - dragStartPos.current.x) / zoom;
+    const dy = (e.clientY - dragStartPos.current.y) / zoom;
 
     setNodes((prev) =>
       prev.map((n) =>
@@ -555,11 +566,65 @@ export const VisualBotFlowBuilder: React.FC<VisualBotFlowBuilderProps> = ({
           style={{
             backgroundImage:
               'radial-gradient(circle, rgba(156, 163, 175, 0.25) 1px, transparent 1px)',
-            backgroundSize: '24px 24px'
+            backgroundSize: `${24 * zoom}px ${24 * zoom}px`
           }}
         >
-          {/* Canvas SVG Connecting Lines */}
-          <svg className="absolute inset-0 w-[2400px] h-[1600px] pointer-events-none z-0">
+          {/* Floating Canvas Zoom Controls Overlay */}
+          <div className="sticky top-4 left-4 z-20 float-right mr-4 mt-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border border-gray-200 dark:border-gray-800 rounded-2xl p-1.5 shadow-2xl flex items-center space-x-1.5 text-xs">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              disabled={zoom <= 0.4}
+              className="p-1.5 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 transition-all"
+              title="Diminuir Zoom (-15%)"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              className="px-2.5 py-1 rounded-xl font-bold font-mono text-[11px] text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all border border-gray-200 dark:border-gray-700/60"
+              title="Redefinir Zoom para 100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              disabled={zoom >= 2.0}
+              className="p-1.5 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 transition-all"
+              title="Aumentar Zoom (+15%)"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+
+            <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 mx-1" />
+
+            <button
+              type="button"
+              onClick={() => setZoom(0.7)}
+              className="px-2 py-1 rounded-xl text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/80 transition-all flex items-center gap-1 border border-emerald-500/20"
+              title="Ajustar Visão Geral do Fluxo"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Ajustar Tela</span>
+            </button>
+          </div>
+
+          {/* Scalable Canvas Content Container */}
+          <div
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top left',
+              width: `${2400}px`,
+              height: `${1600}px`
+            }}
+            className="relative"
+          >
+            {/* Canvas SVG Connecting Lines */}
+            <svg className="absolute inset-0 w-[2400px] h-[1600px] pointer-events-none z-0">
             {nodes.map((node) => {
               if (node.nextNodeId) {
                 const targetNode = nodes.find((n) => n.id === node.nextNodeId);
@@ -743,6 +808,7 @@ export const VisualBotFlowBuilder: React.FC<VisualBotFlowBuilderProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
 
         {/* Right Side Node Inspector & Property Editor */}

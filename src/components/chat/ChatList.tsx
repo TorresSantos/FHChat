@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -25,7 +25,7 @@ interface ChatListProps {
   onSelectTicket: (ticketId: string) => void;
 }
 
-type TabType = 'mine' | 'pending' | 'resolved';
+type TabType = 'mine' | 'pending' | 'waiting' | 'resolved';
 
 export const ChatList: React.FC<ChatListProps> = ({
   tickets,
@@ -102,6 +102,8 @@ export const ChatList: React.FC<ChatListProps> = ({
       return t.status === 'pending';
     } else if (activeTab === 'mine') {
       return t.status === 'in_progress' && t.assignedAttendantId === currentAttendant.id;
+    } else if (activeTab === 'waiting') {
+      return t.status === 'waiting' && t.assignedAttendantId === currentAttendant.id;
     } else if (activeTab === 'resolved') {
       return t.status === 'resolved';
     }
@@ -125,9 +127,19 @@ export const ChatList: React.FC<ChatListProps> = ({
   };
 
   const pendingCount = tickets.filter((t) => t.status === 'pending').length;
+  const waitingCount = tickets.filter(
+    (t) => t.status === 'waiting' && t.assignedAttendantId === currentAttendant.id
+  ).length;
   const mineCount = tickets.filter(
     (t) => t.status === 'in_progress' && t.assignedAttendantId === currentAttendant.id
   ).length;
+
+  // Auto switch tab if waitingCount becomes 0 while on waiting tab
+  useEffect(() => {
+    if (activeTab === 'waiting' && waitingCount === 0) {
+      setActiveTab('mine');
+    }
+  }, [waitingCount, activeTab]);
 
   return (
     <div id="chat-list-panel" className="w-full md:w-80 lg:w-96 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full shrink-0">
@@ -155,10 +167,10 @@ export const ChatList: React.FC<ChatListProps> = ({
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="grid grid-cols-3 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl text-xs font-medium gap-1">
+        <div className={`grid ${waitingCount > 0 ? 'grid-cols-4' : 'grid-cols-3'} bg-gray-100 dark:bg-gray-800 p-1 rounded-xl text-xs font-medium gap-1`}>
           <button
             onClick={() => setActiveTab('mine')}
-            className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all text-center relative ${
+            className={`py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold transition-all text-center relative ${
               activeTab === 'mine'
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-xs'
                 : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
@@ -168,7 +180,7 @@ export const ChatList: React.FC<ChatListProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('pending')}
-            className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all text-center relative ${
+            className={`py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold transition-all text-center relative ${
               activeTab === 'pending'
                 ? 'bg-amber-500 text-white shadow-xs'
                 : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
@@ -176,9 +188,26 @@ export const ChatList: React.FC<ChatListProps> = ({
           >
             Pendentes ({pendingCount})
           </button>
+
+          {/* Dynamic "Em Espera" tab - Appears only when there are waiting tickets for this attendant */}
+          {waitingCount > 0 && (
+            <button
+              onClick={() => setActiveTab('waiting')}
+              className={`py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all text-center relative flex items-center justify-center gap-1 ${
+                activeTab === 'waiting'
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-950/40 ring-1 ring-amber-400'
+                  : 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
+              }`}
+              title="Clientes em espera aguardando resposta"
+            >
+              <Clock className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '4s' }} />
+              <span>Espera ({waitingCount})</span>
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('resolved')}
-            className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all text-center ${
+            className={`py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold transition-all text-center ${
               activeTab === 'resolved'
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-xs'
                 : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
@@ -302,14 +331,26 @@ export const ChatList: React.FC<ChatListProps> = ({
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                     </span>
                   )}
+                  {ticket.status === 'waiting' && (
+                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 bg-amber-500 border-2 border-white dark:border-gray-900 rounded-full items-center justify-center text-[8px] font-bold text-white shadow-xs">
+                      ⏳
+                    </span>
+                  )}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-xs text-gray-900 dark:text-white truncate">
-                      {ticket.contact.name}
-                    </h3>
+                    <div className="flex items-center space-x-1.5 truncate">
+                      <h3 className="font-semibold text-xs text-gray-900 dark:text-white truncate">
+                        {ticket.contact.name}
+                      </h3>
+                      {ticket.status === 'waiting' && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-500 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0 font-mono">
+                          Em Espera
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-gray-400 shrink-0 font-medium">
                       {ticket.lastMessageTimestamp}
                     </span>

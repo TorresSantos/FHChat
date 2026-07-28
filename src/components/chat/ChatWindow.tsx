@@ -34,6 +34,7 @@ interface ChatWindowProps {
   onOpenCloseModal: () => void;
   onToggleCustomerSidebar: () => void;
   showCustomerSidebar: boolean;
+  onToggleWaitingStatus?: (ticketId: string) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -47,7 +48,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onOpenTransferModal,
   onOpenCloseModal,
   onToggleCustomerSidebar,
-  showCustomerSidebar
+  showCustomerSidebar,
+  onToggleWaitingStatus
 }) => {
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -117,6 +119,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
         {/* Right Action Bar */}
         <div className="flex items-center space-x-2">
+          {/* Em Espera Toggle Button */}
+          <button
+            onClick={() => onToggleWaitingStatus && onToggleWaitingStatus(ticket.id)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
+              ticket.status === 'waiting'
+                ? 'bg-amber-500 hover:bg-amber-400 text-white ring-2 ring-amber-300 animate-pulse'
+                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+            }`}
+            title={
+              ticket.status === 'waiting'
+                ? 'Cliente em espera. Clique para retomar atendimento ativo.'
+                : 'Colocar cliente em espera (move para a aba Em Espera)'
+            }
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">
+              {ticket.status === 'waiting' ? 'Em Espera ⏳' : 'Pôr em Espera'}
+            </span>
+          </button>
+
           <button
             onClick={onOpenTransferModal}
             className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
@@ -151,6 +173,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Messages Feed */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 z-10">
+        {/* Waiting Status Banner */}
+        {ticket.status === 'waiting' && (
+          <div className="max-w-xl mx-auto my-1 bg-amber-500/20 border border-amber-500/40 rounded-2xl p-3 backdrop-blur-xs text-amber-800 dark:text-amber-200 text-xs shadow-md space-y-2">
+            <div className="flex items-center justify-between font-bold">
+              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-300">
+                <Clock className="w-4 h-4 animate-spin text-amber-500" style={{ animationDuration: '4s' }} />
+                Atendimento em Espera (Aguardando cliente responder)
+              </span>
+              <button
+                onClick={() => onToggleWaitingStatus && onToggleWaitingStatus(ticket.id)}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-bold transition-all shadow-xs"
+              >
+                Retomar Atendimento
+              </button>
+            </div>
+            <p className="text-[11px] opacity-90 leading-tight">
+              Este cliente foi colocado na aba <strong>Em Espera ⏳</strong>. Quando ele mandar uma nova mensagem, o chamado retornará automaticamente para os seus atendimentos ativos.
+            </p>
+          </div>
+        )}
+
         {/* Ticket Start System Banner */}
         <div className="text-center my-2">
           <span className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xs text-gray-500 dark:text-gray-400 text-[10px] px-3 py-1 rounded-full shadow-xs border border-gray-200/50 dark:border-gray-700/50 inline-flex items-center gap-1">

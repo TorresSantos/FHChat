@@ -8,12 +8,14 @@ import {
   UserCheck,
   PlusCircle,
   Smartphone,
-  Layers
+  Layers,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { Role } from '../types';
 
 export type NavTab =
   | 'chats'
+  | 'calendar'
   | 'contacts'
   | 'quick_replies'
   | 'analytics'
@@ -48,6 +50,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       icon: MessageSquare,
       badge: unreadCount > 0 ? unreadCount : null,
       badgeColor: 'bg-emerald-500',
+      allowed: true
+    },
+    {
+      id: 'calendar' as NavTab,
+      label: 'Agenda de Disparos',
+      icon: CalendarIcon,
       allowed: true
     },
     {

@@ -98,6 +98,12 @@ export const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     const newSched: ScheduledMessage = {
       id: 'sched-' + Date.now(),
       ticketId: ticket.id,
+      contactId: ticket.contactId,
+      contactName: ticket.contact.name,
+      contactPhone: ticket.contact.phone,
+      connectionId: ticket.connectionId || 'conn-1',
+      connectionName: 'WhatsApp Standard',
+      connectionProvider: 'evolution',
       content: scheduleText.trim(),
       scheduledAt: scheduleDateTime,
       status: 'pending',

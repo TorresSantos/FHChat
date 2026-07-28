@@ -24,7 +24,7 @@ export interface Department {
   iconName: string;
 }
 
-export type TicketStatus = 'pending' | 'in_progress' | 'resolved' | 'transferred';
+export type TicketStatus = 'pending' | 'in_progress' | 'waiting' | 'resolved' | 'transferred';
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface Contact {
@@ -55,6 +55,15 @@ export interface Queue {
   attendantIds: string[];
   isDefault?: boolean;
   isActive: boolean;
+  // Operating Hours & Automatic Messages
+  schedulesType?: '24h' | 'custom';
+  morningStart?: string;      // ex: "08:00"
+  morningEnd?: string;        // ex: "12:00" (Início do almoço)
+  afternoonStart?: string;    // ex: "13:30" (Fim do almoço)
+  afternoonEnd?: string;      // ex: "18:00" (Fim do expediente)
+  outOfHoursMessage?: string; // Mensagem para envio fora do expediente
+  lunchBreakMessage?: string; // Mensagem para envio durante o almoço
+  maxOutOfHoursNotifs?: number; // Limite de vezes que o aviso é enviado (ex: 1)
 }
 
 export interface WhatsAppConnection {
@@ -199,10 +208,17 @@ export interface BotFlow {
 
 export interface ScheduledMessage {
   id: string;
-  ticketId: string;
+  ticketId?: string;
+  contactId?: string;
+  contactName: string;
+  contactPhone: string;
+  connectionId: string;
+  connectionName?: string;
+  connectionProvider?: 'evolution' | 'baileys';
   content: string;
   scheduledAt: string;
   status: 'pending' | 'sent' | 'cancelled';
+  frequency?: 'once' | 'daily' | 'weekly' | 'monthly';
   createdAt: string;
 }
 
