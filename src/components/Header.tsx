@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Clock,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  LogOut
 } from 'lucide-react';
 import { Attendant, AttendantStatus, EvolutionConfig } from '../types';
 
@@ -22,6 +23,7 @@ interface HeaderProps {
   evolutionConfig: EvolutionConfig;
   onNavigateToEvolution: () => void;
   unreadTotal: number;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,7 +33,8 @@ export const Header: React.FC<HeaderProps> = ({
   onUpdateAttendantStatus,
   evolutionConfig,
   onNavigateToEvolution,
-  unreadTotal
+  unreadTotal,
+  onLogout
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -131,37 +134,42 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {showUserDropdown && (
-            <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-2 z-50">
-              <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-                <p className="text-xs font-bold text-gray-900 dark:text-white">Trocar Atendente Ativo</p>
-                <p className="text-[10px] text-gray-500">Simule a perspectiva de outros operadores da central:</p>
+            <div className="absolute right-0 mt-1 w-60 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 z-50 space-y-3">
+              <div className="flex items-center space-x-3 pb-2.5 border-b border-gray-100 dark:border-gray-700">
+                <img
+                  src={currentAttendant.avatar}
+                  alt={currentAttendant.name}
+                  className="w-10 h-10 rounded-full object-cover border border-emerald-500"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                    {currentAttendant.name}
+                  </p>
+                  <p className="text-[10px] text-gray-400 truncate">
+                    {currentAttendant.email}
+                  </p>
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold rounded capitalize">
+                    {currentAttendant.role === 'admin'
+                      ? '👑 Administrador'
+                      : currentAttendant.role === 'supervisor'
+                      ? '📊 Supervisor'
+                      : '🎧 Atendente'}
+                  </span>
+                </div>
               </div>
 
-              <div className="max-h-60 overflow-y-auto py-1">
-                {attendants.map((att) => (
-                  <button
-                    key={att.id}
-                    onClick={() => {
-                      onSelectAttendant(att);
-                      setShowUserDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/60 ${
-                      att.id === currentAttendant.id ? 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-gray-700 dark:text-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <img src={att.avatar} alt={att.name} className="w-6 h-6 rounded-full object-cover" />
-                      <div>
-                        <p className="leading-none">{att.name}</p>
-                        <span className="text-[9px] text-gray-400">{att.activeTicketsCount} chamados</span>
-                      </div>
-                    </div>
-                    {att.id === currentAttendant.id && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              {onLogout && (
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    onLogout();
+                  }}
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sair da Conta / Login</span>
+                </button>
+              )}
             </div>
           )}
         </div>

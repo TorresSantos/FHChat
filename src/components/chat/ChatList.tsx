@@ -43,13 +43,20 @@ export const ChatList: React.FC<ChatListProps> = ({
   const [selectedQueueId, setSelectedQueueId] = useState<string>('all');
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>('all');
 
+  const [selectedAttendantId, setSelectedAttendantId] = useState<string>('all');
+
   // Filter logic
   const filteredTickets = tickets.filter((t) => {
-    // Search query
+    // Search query matching Name, Phone, CPF/CNPJ, PushName, JID, Message
+    const q = searchQuery.toLowerCase().trim();
     const matchSearch =
-      t.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.contact.phone.includes(searchQuery) ||
-      (t.lastMessageSnippet && t.lastMessageSnippet.toLowerCase().includes(searchQuery.toLowerCase()));
+      !q ||
+      t.contact.name.toLowerCase().includes(q) ||
+      t.contact.phone.includes(q) ||
+      (t.contact.cpfCnpj && t.contact.cpfCnpj.toLowerCase().includes(q)) ||
+      (t.contact.pushName && t.contact.pushName.toLowerCase().includes(q)) ||
+      (t.contact.jid && t.contact.jid.toLowerCase().includes(q)) ||
+      (t.lastMessageSnippet && t.lastMessageSnippet.toLowerCase().includes(q));
 
     if (!matchSearch) return false;
 
@@ -68,6 +75,11 @@ export const ChatList: React.FC<ChatListProps> = ({
           return false;
         }
       }
+    }
+
+    // Manual Attendant Filter
+    if (selectedAttendantId !== 'all' && t.assignedAttendantId !== selectedAttendantId) {
+      return false;
     }
 
     // Manual Department filter
@@ -176,8 +188,8 @@ export const ChatList: React.FC<ChatListProps> = ({
           </button>
         </div>
 
-        {/* Dropdown Filters (Setor, Fila, Conexão) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+        {/* Dropdown Filters (Setor, Fila, Conexão, Atendente) */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
           <div className="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200/80 dark:border-gray-700">
             <Filter className="w-3 h-3 text-gray-400 shrink-0" />
             <select
@@ -195,6 +207,23 @@ export const ChatList: React.FC<ChatListProps> = ({
           </div>
 
           <div className="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200/80 dark:border-gray-700">
+            <User className="w-3 h-3 text-gray-400 shrink-0" />
+            <select
+              value={selectedAttendantId}
+              onChange={(e) => setSelectedAttendantId(e.target.value)}
+              className="w-full bg-transparent text-[11px] text-gray-800 dark:text-gray-200 border-none focus:ring-0 p-0 font-medium cursor-pointer truncate"
+            >
+              <option value="all" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">Atendente: Todos</option>
+              {attendants.map((a) => (
+                <option key={a.id} value={a.id} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200/80 dark:border-gray-700">
+            <Layers className="w-3 h-3 text-gray-400 shrink-0" />
             <select
               value={selectedQueueId}
               onChange={(e) => setSelectedQueueId(e.target.value)}
@@ -210,6 +239,7 @@ export const ChatList: React.FC<ChatListProps> = ({
           </div>
 
           <div className="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200/80 dark:border-gray-700">
+            <Smartphone className="w-3 h-3 text-gray-400 shrink-0" />
             <select
               value={selectedConnectionId}
               onChange={(e) => setSelectedConnectionId(e.target.value)}

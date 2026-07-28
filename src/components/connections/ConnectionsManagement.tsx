@@ -19,7 +19,12 @@ import {
   Sparkles,
   MessageSquare,
   ShieldCheck,
-  Check
+  Check,
+  Zap,
+  Radio,
+  Copy,
+  Terminal,
+  Cpu
 } from 'lucide-react';
 import { WhatsAppConnection, Queue, BotFlow } from '../../types';
 
@@ -48,20 +53,28 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string } | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    provider: 'evolution' as 'evolution' | 'baileys',
     apiUrl: 'https://api.evolution-api.com',
     apiKey: '',
     instanceName: '',
     webhookUrl: 'https://meudominio.com/api/evolution/webhook',
+    baileysSessionId: '',
+    usePairingCode: false,
+    pairingCode: '',
+    baileysVersion: '@whiskeysockets/baileys v6.7.8',
+    browserName: 'Chrome / macOS',
     status: 'connected' as WhatsAppConnection['status'],
     queueIds: [] as string[],
     botEnabled: true,
     botId: '',
     botGreetingMessage: 'Olá! Seja bem-vindo à nossa Central Digital. Digite o número da opção desejada:\n\n1️⃣ Vendas & Novos Clientes\n2️⃣ Suporte Técnico\n3️⃣ Financeiro & Boletos\n4️⃣ Outros Assuntos',
+    completionMessage: 'Agradecemos o seu contato! Seu atendimento foi finalizado com sucesso. Se precisar de mais alguma coisa, estamos à disposição. Tenha um ótimo dia! 😊',
     transferKeyword: 'voltar',
     outOfHoursMessage: 'Nosso horário de atendimento é de segunda a sexta das 08h às 18h.'
   });
@@ -71,16 +84,23 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
     setFormData({
       name: '',
       phone: '',
+      provider: 'evolution',
       apiUrl: 'https://api.evolution-api.com',
       apiKey: 'EVOLUTION_SECRET_KEY_' + Math.floor(1000 + Math.random() * 9000),
       instanceName: 'whatsapp-inst-' + (connections.length + 1),
       webhookUrl: 'https://meudominio.com/api/evolution/webhook',
+      baileysSessionId: 'baileys_session_' + (connections.length + 1),
+      usePairingCode: false,
+      pairingCode: Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000),
+      baileysVersion: '@whiskeysockets/baileys v6.7.8',
+      browserName: 'Chrome / macOS',
       status: 'connected',
       queueIds: queues.map((q) => q.id),
       botEnabled: true,
       botId: bots.length > 0 ? bots[0].id : '',
       botGreetingMessage: 'Olá! Seja bem-vindo ao nosso atendimento via WhatsApp.\nPor favor, escolha uma opção abaixo para ser direcionado:\n' +
         queues.map((q) => `${q.optionNumber}️⃣ ${q.name}`).join('\n'),
+      completionMessage: 'Agradecemos o seu contato! Atendimento finalizado com sucesso. Se precisar de algo mais, estamos à disposição. 😊',
       transferKeyword: 'voltar',
       outOfHoursMessage: 'Nosso atendimento funciona de segunda a sexta, das 08:00 às 18:00.'
     });
@@ -92,15 +112,22 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
     setFormData({
       name: conn.name,
       phone: conn.phone,
+      provider: conn.provider || 'evolution',
       apiUrl: conn.apiUrl,
       apiKey: conn.apiKey,
       instanceName: conn.instanceName,
       webhookUrl: conn.webhookUrl,
+      baileysSessionId: conn.baileysSessionId || conn.instanceName,
+      usePairingCode: !!conn.usePairingCode,
+      pairingCode: conn.pairingCode || Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000),
+      baileysVersion: conn.baileysVersion || '@whiskeysockets/baileys v6.7.8',
+      browserName: conn.browserName || 'Chrome / macOS',
       status: conn.status,
       queueIds: [...conn.queueIds],
       botEnabled: conn.botEnabled,
       botId: conn.botId || (bots.length > 0 ? bots[0].id : ''),
       botGreetingMessage: conn.botGreetingMessage,
+      completionMessage: conn.completionMessage || 'Agradecemos o seu contato! Atendimento finalizado com sucesso.',
       transferKeyword: conn.transferKeyword || 'voltar',
       outOfHoursMessage: conn.outOfHoursMessage || ''
     });
@@ -109,22 +136,29 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.instanceName.trim()) return;
+    if (!formData.name.trim()) return;
 
     if (selectedConnection) {
       onUpdateConnection({
         ...selectedConnection,
         name: formData.name,
         phone: formData.phone,
+        provider: formData.provider,
         apiUrl: formData.apiUrl,
         apiKey: formData.apiKey,
-        instanceName: formData.instanceName,
+        instanceName: formData.instanceName || formData.baileysSessionId,
         webhookUrl: formData.webhookUrl,
+        baileysSessionId: formData.baileysSessionId,
+        usePairingCode: formData.usePairingCode,
+        pairingCode: formData.pairingCode,
+        baileysVersion: formData.baileysVersion,
+        browserName: formData.browserName,
         status: formData.status,
         queueIds: formData.queueIds,
         botEnabled: formData.botEnabled,
         botId: formData.botId || undefined,
         botGreetingMessage: formData.botGreetingMessage,
+        completionMessage: formData.completionMessage,
         transferKeyword: formData.transferKeyword,
         outOfHoursMessage: formData.outOfHoursMessage,
         updatedAt: new Date().toISOString()
@@ -133,16 +167,23 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
       onAddConnection({
         name: formData.name,
         phone: formData.phone || '+55 11 9' + Math.floor(10000000 + Math.random() * 90000000),
+        provider: formData.provider,
         apiUrl: formData.apiUrl,
         apiKey: formData.apiKey,
-        instanceName: formData.instanceName,
+        instanceName: formData.instanceName || formData.baileysSessionId || 'baileys_inst_1',
         webhookUrl: formData.webhookUrl,
+        baileysSessionId: formData.baileysSessionId || 'baileys_sess_' + Date.now(),
+        usePairingCode: formData.usePairingCode,
+        pairingCode: formData.pairingCode || Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(1000 + Math.random() * 9000),
+        baileysVersion: formData.baileysVersion,
+        browserName: formData.browserName,
         status: formData.status,
         queueIds: formData.queueIds,
         isDefault: connections.length === 0,
         botEnabled: formData.botEnabled,
         botId: formData.botId || undefined,
         botGreetingMessage: formData.botGreetingMessage,
+        completionMessage: formData.completionMessage,
         transferKeyword: formData.transferKeyword,
         outOfHoursMessage: formData.outOfHoursMessage,
         lastSyncTime: new Date().toISOString()
@@ -206,12 +247,12 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center gap-2">
                   Múltiplas Conexões WhatsApp
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30">
-                    Evolution API Multi-Instância
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30 flex items-center gap-1">
+                    <Globe className="w-3 h-3" /> Evolution API & <Zap className="w-3 h-3 text-purple-400" /> Baileys Engine
                   </span>
                 </h1>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Conecte múltiplos números de WhatsApp simultaneamente e vincule filas de atendimento exclusivas para cada linha.
+                  Conecte múltiplos números de WhatsApp via Evolution API ou motor leve Baileys (WhiskeySockets).
                 </p>
               </div>
             </div>
@@ -300,11 +341,20 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
                         <Phone className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-bold text-white text-base">{conn.name}</h3>
                           {conn.isDefault && (
                             <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                               Conexão Padrão
+                            </span>
+                          )}
+                          {conn.provider === 'baileys' ? (
+                            <span className="text-[10px] font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                              <Zap className="w-3 h-3 text-purple-400" /> Baileys Engine
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                              <Globe className="w-3 h-3 text-emerald-400" /> Evolution API
                             </span>
                           )}
                         </div>
@@ -338,18 +388,43 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
 
                   {/* Details Grid */}
                   <div className="bg-gray-950/60 rounded-xl p-3 border border-gray-800/80 space-y-2 text-xs">
-                    <div className="grid grid-cols-2 gap-2 text-gray-400">
-                      <div>
-                        <span className="text-[10px] text-gray-500 block uppercase">Instância Evolution</span>
-                        <span className="font-mono text-gray-200 truncate block">{conn.instanceName}</span>
+                    {conn.provider === 'baileys' ? (
+                      <div className="grid grid-cols-2 gap-2 text-gray-400">
+                        <div>
+                          <span className="text-[10px] text-purple-400 block uppercase font-medium">Sessão Baileys (WS)</span>
+                          <span className="font-mono text-gray-200 truncate block">{conn.baileysSessionId || conn.instanceName}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-500 block uppercase">Modo de Conexão</span>
+                          <span className="font-sans text-gray-300 text-[11px] truncate block">
+                            {conn.usePairingCode ? 'Código Pareamento (8 dig.)' : 'Scan QR Code'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-500 block uppercase">Versão Pacote</span>
+                          <span className="font-mono text-gray-300 text-[10px] truncate block">{conn.baileysVersion || '@whiskeysockets/baileys'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-500 block uppercase">Endpoint WS / Webhook</span>
+                          <span className="font-mono text-gray-300 text-[10px] truncate block" title={conn.apiUrl}>
+                            {conn.apiUrl}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-500 block uppercase">API URL</span>
-                        <span className="font-mono text-gray-200 truncate block" title={conn.apiUrl}>
-                          {conn.apiUrl}
-                        </span>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 text-gray-400">
+                        <div>
+                          <span className="text-[10px] text-gray-500 block uppercase">Instância Evolution</span>
+                          <span className="font-mono text-gray-200 truncate block">{conn.instanceName}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-500 block uppercase">API Endpoint</span>
+                          <span className="font-mono text-gray-200 truncate block" title={conn.apiUrl}>
+                            {conn.apiUrl}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Queues Attached */}
                     <div className="pt-2 border-t border-gray-800/60">
@@ -503,6 +578,62 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
             </div>
 
             <form onSubmit={handleSave} className="mt-4 space-y-5">
+              {/* Provider Selector */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 uppercase mb-2">
+                  Selecione o Motor de Conexão WhatsApp (API Provider) *
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        provider: 'evolution',
+                        apiUrl: formData.apiUrl.includes('baileys') || formData.apiUrl === '' ? 'https://api.evolution-api.com' : formData.apiUrl
+                      })
+                    }
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      formData.provider === 'evolution'
+                        ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-md shadow-emerald-950/40'
+                        : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Globe className={`w-4 h-4 ${formData.provider === 'evolution' ? 'text-emerald-400' : 'text-gray-500'}`} />
+                      <span className="font-bold text-xs text-white">Evolution API (REST)</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      API REST com Webhooks, multi-instância e gerenciador completo de WhatsApp Web.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        provider: 'baileys',
+                        apiUrl: formData.apiUrl.includes('evolution-api') || formData.apiUrl === '' ? 'wss://baileys.meudominio.com' : formData.apiUrl
+                      })
+                    }
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      formData.provider === 'baileys'
+                        ? 'bg-purple-500/10 border-purple-500 text-white shadow-md shadow-purple-950/40'
+                        : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Zap className={`w-4 h-4 ${formData.provider === 'baileys' ? 'text-purple-400' : 'text-gray-500'}`} />
+                      <span className="font-bold text-xs text-white">Baileys Engine (WS)</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      Motor leve WebSocket (@whiskeysockets/baileys) de conexão direta sem intermediários.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
               {/* Basic Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -533,48 +664,146 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
                 </div>
               </div>
 
-              {/* API Connection details */}
-              <div className="bg-gray-950 rounded-xl p-4 border border-gray-800 space-y-3">
-                <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Globe className="w-4 h-4" />
-                  <span>Credenciais Evolution API</span>
-                </h4>
+              {/* API Connection details - Conditional */}
+              {formData.provider === 'baileys' ? (
+                <div className="bg-purple-950/30 rounded-xl p-4 border border-purple-800/40 space-y-3">
+                  <h4 className="text-xs font-semibold text-purple-300 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Zap className="w-4 h-4 text-purple-400" />
+                    <span>Configurações Baileys Engine (@whiskeysockets/baileys)</span>
+                  </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-medium text-gray-400 mb-1">API URL Endpoint</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.apiUrl}
-                      onChange={(e) => setFormData({ ...formData, apiUrl: e.target.value })}
-                      className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Nome da Sessão Baileys (Session ID) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="baileys_session_vendas"
+                        value={formData.baileysSessionId}
+                        onChange={(e) => setFormData({ ...formData, baileysSessionId: e.target.value, instanceName: e.target.value })}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Endpoint WebSocket / Server URL
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.apiUrl}
+                        onChange={(e) => setFormData({ ...formData, apiUrl: e.target.value })}
+                        placeholder="wss://baileys.meudominio.com"
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Versão do Pacote Baileys
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.baileysVersion}
+                        onChange={(e) => setFormData({ ...formData, baileysVersion: e.target.value })}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        User-Agent / Navegador Simulado
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.browserName}
+                        onChange={(e) => setFormData({ ...formData, browserName: e.target.value })}
+                        placeholder="Chrome / macOS"
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pairing Code vs QR Code */}
+                  <div className="pt-2 border-t border-purple-900/40">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.usePairingCode}
+                        onChange={(e) => setFormData({ ...formData, usePairingCode: e.target.checked })}
+                        className="rounded bg-gray-900 border-gray-700 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="text-xs font-semibold text-purple-200">
+                        Usar Código de Pareamento de 8 Dígitos (Pairing Code) ao invés de QR Code
+                      </span>
+                    </label>
+                    <p className="text-[10px] text-gray-400 ml-6 mt-0.5">
+                      Permite parear inserindo um código numérico diretamente no aplicativo do WhatsApp.
+                    </p>
+
+                    {formData.usePairingCode && (
+                      <div className="mt-2 ml-6">
+                        <label className="block text-[11px] font-medium text-purple-300 mb-1">
+                          Código de Pareamento Pré-definido
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.pairingCode}
+                          onChange={(e) => setFormData({ ...formData, pairingCode: e.target.value })}
+                          className="w-48 bg-gray-900 border border-purple-500/50 rounded-xl px-3 py-1.5 text-xs text-purple-300 font-mono font-bold focus:outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-950 rounded-xl p-4 border border-gray-800 space-y-3">
+                  <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Globe className="w-4 h-4" />
+                    <span>Credenciais Evolution API</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-400 mb-1">API URL Endpoint</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.apiUrl}
+                        onChange={(e) => setFormData({ ...formData, apiUrl: e.target.value })}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-400 mb-1">Nome da Instância *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="minha-instancia-vendas"
+                        value={formData.instanceName}
+                        onChange={(e) => setFormData({ ...formData, instanceName: e.target.value })}
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-400 mb-1">Nome da Instância *</label>
+                    <label className="block text-[11px] font-medium text-gray-400 mb-1">Chave da API (API Key)</label>
                     <input
-                      type="text"
-                      required
-                      placeholder="minha-instancia-vendas"
-                      value={formData.instanceName}
-                      onChange={(e) => setFormData({ ...formData, instanceName: e.target.value })}
+                      type="password"
+                      value={formData.apiKey}
+                      onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
                       className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">Chave da API (API Key)</label>
-                  <input
-                    type="password"
-                    value={formData.apiKey}
-                    onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Bind Queues */}
               <div>
@@ -693,6 +922,24 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
                         </p>
                       </div>
                     )}
+
+                    {/* Mensagem de Finalização Automática */}
+                    <div className="space-y-1 pt-2 border-t border-purple-900/40">
+                      <label className="block text-[11px] font-semibold text-emerald-400 flex items-center justify-between">
+                        <span>Mensagem de Finalização Automática de Atendimento</span>
+                        <span className="text-[10px] text-gray-500 font-normal">(Enviada ao encerrar o ticket)</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={formData.completionMessage}
+                        onChange={(e) => setFormData({ ...formData, completionMessage: e.target.value })}
+                        placeholder="Ex: Agradecemos seu contato! Seu atendimento foi finalizado com sucesso. Tenha um ótimo dia!"
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-sans"
+                      />
+                      <p className="text-[10px] text-gray-400">
+                        Esta mensagem de despedida será enviada automaticamente pelo WhatsApp ao cliente assim que um atendente concluir e finalizar o ticket.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -718,14 +965,23 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
         </div>
       )}
 
-      {/* QR Code Modal */}
+      {/* QR Code / Pairing Code Modal */}
       {isQrModalOpen && selectedConnection && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
             <div className="flex items-center justify-between pb-2 border-b border-gray-800">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-emerald-400" />
-                Conectar WhatsApp Web
+                {selectedConnection.provider === 'baileys' && selectedConnection.usePairingCode ? (
+                  <>
+                    <Key className="w-4 h-4 text-purple-400" />
+                    <span>Código de Pareamento Baileys</span>
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="w-4 h-4 text-emerald-400" />
+                    <span>Conectar WhatsApp Web</span>
+                  </>
+                )}
               </h3>
               <button
                 onClick={() => setIsQrModalOpen(false)}
@@ -735,24 +991,68 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
               </button>
             </div>
 
-            <p className="text-xs text-gray-300">
-              Abra o WhatsApp no celular &gt; <strong>Aparelhos Conectados</strong> &gt; <strong>Conectar um Aparelho</strong> e aponte para a imagem:
-            </p>
+            {selectedConnection.provider === 'baileys' && selectedConnection.usePairingCode ? (
+              /* Pairing Code Mode for Baileys */
+              <div className="space-y-4">
+                <p className="text-xs text-gray-300">
+                  Insira o código numérico no WhatsApp do seu celular:
+                </p>
 
-            <div className="bg-white p-4 rounded-2xl inline-block border-4 border-emerald-500/30 shadow-inner">
-              {qrCodeData ? (
-                <img src={qrCodeData} alt="QR Code Evolution API" className="w-48 h-48 mx-auto" />
-              ) : (
-                <div className="w-48 h-48 flex items-center justify-center text-gray-400 text-xs">
-                  Gerando QR Code...
+                <div className="bg-purple-950/60 border-2 border-purple-500/50 rounded-2xl p-4 shadow-inner">
+                  <span className="text-2xl md:text-3xl font-mono font-extrabold text-purple-200 tracking-wider select-all block">
+                    {selectedConnection.pairingCode || '8492-7103'}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            <div className="text-left bg-gray-950 p-3 rounded-xl border border-gray-800 text-[11px] text-gray-400 space-y-1">
-              <p><strong>Instância:</strong> {selectedConnection.instanceName}</p>
-              <p><strong>Status atual:</strong> <span className="text-amber-400">Aguardando Leitura QR</span></p>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedConnection.pairingCode || '8492-7103');
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2000);
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs py-2 rounded-xl transition-all flex items-center justify-center space-x-2"
+                >
+                  {copiedCode ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedCode ? 'Código Copiado!' : 'Copiar Código de Pareamento'}</span>
+                </button>
+
+                <div className="text-left bg-gray-950 p-3 rounded-xl border border-gray-800 text-[11px] text-gray-400 space-y-1">
+                  <p className="font-semibold text-purple-300">Instruções no Celular:</p>
+                  <p>1. Abra o WhatsApp &gt; Menu/Configurações</p>
+                  <p>2. Clique em <strong>Aparelhos Conectados</strong></p>
+                  <p>3. Clique em <strong>Conectar com número de telefone</strong></p>
+                  <p>4. Digite o código de 8 dígitos acima.</p>
+                </div>
+              </div>
+            ) : (
+              /* QR Code Mode */
+              <div className="space-y-4">
+                <p className="text-xs text-gray-300">
+                  Abra o WhatsApp no celular &gt; <strong>Aparelhos Conectados</strong> &gt; <strong>Conectar um Aparelho</strong> e aponte para a imagem:
+                </p>
+
+                <div className="bg-white p-4 rounded-2xl inline-block border-4 border-emerald-500/30 shadow-inner">
+                  {qrCodeData ? (
+                    <img
+                      src={qrCodeData}
+                      alt={selectedConnection.provider === 'baileys' ? 'QR Code Baileys WS' : 'QR Code Evolution API'}
+                      className="w-48 h-48 mx-auto"
+                    />
+                  ) : (
+                    <div className="w-48 h-48 flex items-center justify-center text-gray-400 text-xs">
+                      Gerando QR Code...
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-left bg-gray-950 p-3 rounded-xl border border-gray-800 text-[11px] text-gray-400 space-y-1">
+                  <p><strong>Motor:</strong> {selectedConnection.provider === 'baileys' ? 'Baileys Engine (WS)' : 'Evolution API (REST)'}</p>
+                  <p><strong>Sessão/Instância:</strong> {selectedConnection.instanceName || selectedConnection.baileysSessionId}</p>
+                  <p><strong>Status atual:</strong> <span className="text-amber-400">Aguardando Leitura QR</span></p>
+                </div>
+              </div>
+            )}
 
             <button
               onClick={() => {
@@ -766,7 +1066,7 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
               }}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs py-2.5 rounded-xl transition-all shadow-md shadow-emerald-900/40"
             >
-              Simular Leitura QR Concluída
+              Simular Conexão Concluída
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@ export interface Attendant {
   id: string;
   name: string;
   email: string;
+  password?: string;
   avatar: string;
   role: Role;
   departmentId: string;
@@ -30,9 +31,10 @@ export interface Contact {
   id: string;
   name: string;
   phone: string;
+  cpfCnpj?: string;     // CPF ou CNPJ do cliente
   jid?: string;         // WhatsApp JID (ex: 5511988881234@s.whatsapp.net)
   lid?: string;         // WhatsApp LID (ex: 1234567890123456@lid - Novo ID de Privacidade Meta)
-  pushName?: string;    // Nome de usuário no WhatsApp (PushName)
+  pushName?: string;    // Nome de usuário no WhatsApp (PushName original)
   email?: string;
   avatar?: string;
   tags: string[];
@@ -59,10 +61,17 @@ export interface WhatsAppConnection {
   id: string;
   name: string;
   phone: string;
+  provider?: 'evolution' | 'baileys'; // WhatsApp Engine API provider
   apiUrl: string;
   apiKey: string;
   instanceName: string;
   webhookUrl: string;
+  // Baileys specific fields (WhiskeySockets/Baileys)
+  baileysSessionId?: string;
+  usePairingCode?: boolean;
+  pairingCode?: string;
+  baileysVersion?: string;
+  browserName?: string;
   status: 'connected' | 'connecting' | 'disconnected' | 'refused';
   qrCodeUrl?: string;
   queueIds: string[];
@@ -70,6 +79,7 @@ export interface WhatsAppConnection {
   botEnabled: boolean;
   botId?: string;
   botGreetingMessage: string;
+  completionMessage?: string; // Mensagem automática de finalização de atendimento
   transferKeyword?: string;
   outOfHoursMessage?: string;
   lastSyncTime?: string;
@@ -186,4 +196,23 @@ export interface BotFlow {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ScheduledMessage {
+  id: string;
+  ticketId: string;
+  content: string;
+  scheduledAt: string;
+  status: 'pending' | 'sent' | 'cancelled';
+  createdAt: string;
+}
+
+export interface TicketReminder {
+  id: string;
+  ticketId: string;
+  title: string;
+  remindAt: string;
+  isCompleted: boolean;
+  createdAt: string;
+}
+
 

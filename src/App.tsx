@@ -7,6 +7,7 @@ import { CustomerSidebar } from './components/chat/CustomerSidebar';
 import { TransferModal } from './components/chat/TransferModal';
 import { CloseTicketModal } from './components/chat/CloseTicketModal';
 import { NewChatModal } from './components/chat/NewChatModal';
+import { AuthScreen } from './components/auth/AuthScreen';
 
 import { EvolutionSettings } from './components/evolution/EvolutionSettings';
 import { AttendantsManagement } from './components/attendants/AttendantsManagement';
@@ -44,7 +45,9 @@ import {
   AttendantStatus,
   Queue,
   WhatsAppConnection,
-  BotFlow
+  BotFlow,
+  ScheduledMessage,
+  TicketReminder
 } from './types';
 
 export default function App() {
@@ -118,8 +121,84 @@ export default function App() {
     setQueues((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Scheduled Messages State (Feature #5)
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([
+    {
+      id: 'sched-1',
+      ticketId: 'tick-1',
+      content: 'Olá! Passando para confirmar se deu tudo certo com o seu pedido?',
+      scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+  ]);
+
+  // Reminders / Follow-up State (Feature #5)
+  const [reminders, setReminders] = useState<TicketReminder[]>([
+    {
+      id: 'rem-1',
+      ticketId: 'tick-1',
+      title: 'Ligar para confirmar o envio da proposta assinada',
+      remindAt: new Date(Date.now() + 14400000).toISOString(),
+      isCompleted: false,
+      createdAt: new Date().toISOString()
+    }
+  ]);
+
+  const handleAddScheduledMessage = (newSched: ScheduledMessage) => {
+    setScheduledMessages((prev) => [...prev, newSched]);
+  };
+
+  const handleCancelScheduledMessage = (schedId: string) => {
+    setScheduledMessages((prev) =>
+      prev.map((s) => (s.id === schedId ? { ...s, status: 'cancelled' } : s))
+    );
+  };
+
+  const handleAddReminder = (newRem: TicketReminder) => {
+    setReminders((prev) => [...prev, newRem]);
+  };
+
+  const handleToggleReminder = (remId: string) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === remId ? { ...r, isCompleted: !r.isCompleted } : r))
+    );
+  };
+
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+
   // Current Logged-in Attendant
   const [currentAttendant, setCurrentAttendant] = useState<Attendant>(initialAttendants[0]);
+
+  // Restrict tabs for common attendants ('attendant')
+  useEffect(() => {
+    if (currentAttendant.role === 'attendant') {
+      if (['connections', 'queues', 'evolution', 'attendants'].includes(activeTab)) {
+        setActiveTab('chats');
+      }
+    }
+  }, [currentAttendant.role, activeTab]);
+
+  const handleLoginSuccess = (attendant: Attendant) => {
+    setCurrentAttendant(attendant);
+    setIsAuthenticated(true);
+  };
+
+  const handleRegisterUser = (newAttendantData: Omit<Attendant, 'id' | 'activeTicketsCount'>) => {
+    const createdAttendant: Attendant = {
+      ...newAttendantData,
+      id: 'att-' + Date.now(),
+      activeTicketsCount: 0
+    };
+    setAttendants((prev) => [createdAttendant, ...prev]);
+    setCurrentAttendant(createdAttendant);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+  };
 
   // Selected Ticket Helper
   const activeTicket = tickets.find((t) => t.id === selectedTicketId) || null;
@@ -296,6 +375,8 @@ export default function App() {
   };
 
   const handleConfirmClose = (ticketId: string, rating?: number, summary?: string) => {
+    const targetTicket = tickets.find((t) => t.id === ticketId);
+
     setTickets((prev) =>
       prev.map((t) =>
         t.id === ticketId
@@ -309,9 +390,33 @@ export default function App() {
       )
     );
 
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newMsgs: Message[] = [];
+
+    // 1. Send automatic completion farewell message if connection has it configured
+    if (targetTicket) {
+      const conn =
+        connections.find((c) => c.id === targetTicket.connectionId) ||
+        connections.find((c) => c.isDefault) ||
+        connections[0];
+
+      if (conn && conn.completionMessage) {
+        newMsgs.push({
+          id: 'msg-completion-' + Date.now(),
+          ticketId,
+          sender: 'bot',
+          type: 'text',
+          content: conn.completionMessage,
+          timestamp: time,
+          status: 'sent',
+          senderName: 'Sistema WhatsApp Auto'
+        });
+      }
+    }
+
+    // 2. Internal summary note
     if (summary) {
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const closeMsg: Message = {
+      newMsgs.push({
         id: 'msg-cl-' + Date.now(),
         ticketId,
         sender: 'system',
@@ -320,27 +425,39 @@ export default function App() {
         timestamp: time,
         isInternalNote: true,
         senderName: currentAttendant.name
-      };
+      });
+    }
 
+    if (newMsgs.length > 0) {
       setMessages((prev) => ({
         ...prev,
-        [ticketId]: [...(prev[ticketId] || []), closeMsg]
+        [ticketId]: [...(prev[ticketId] || []), ...newMsgs]
       }));
     }
+  };
+
+  const handleUpdateContact = (updatedContact: Contact) => {
+    setContacts((prev) =>
+      prev.map((c) => (c.id === updatedContact.id ? updatedContact : c))
+    );
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.contactId === updatedContact.id ? { ...t, contact: updatedContact } : t
+      )
+    );
   };
 
   const handleCreateNewChat = (
     name: string,
     phone: string,
     departmentId: string,
-    initialMessageText?: string
+    initialMessageText?: string,
+    connectionId?: string
   ) => {
-    const newContactId = 'cont-' + Date.now();
-    const newTicketId = 'tick-' + Date.now();
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const newContact: Contact = {
-      id: newContactId,
+    // Check if contact already exists by phone
+    const existingContact = contacts.find((c) => c.phone === phone);
+    const contactToUse: Contact = existingContact || {
+      id: 'cont-' + Date.now(),
       name,
       phone,
       tags: ['Novo Lead'],
@@ -348,11 +465,15 @@ export default function App() {
       lastContactedAt: new Date().toISOString()
     };
 
+    const newTicketId = 'tick-' + Date.now();
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     const newTicket: Ticket = {
       id: newTicketId,
-      contactId: newContactId,
-      contact: newContact,
+      contactId: contactToUse.id,
+      contact: contactToUse,
       departmentId,
+      connectionId: connectionId || connections[0]?.id,
       assignedAttendantId: currentAttendant.id,
       status: 'in_progress',
       priority: 'medium',
@@ -364,8 +485,11 @@ export default function App() {
       lastMessageTimestamp: time
     };
 
-    setContacts((prev) => [newContact, ...prev]);
+    if (!existingContact) {
+      setContacts((prev) => [contactToUse, ...prev]);
+    }
     setTickets((prev) => [newTicket, ...prev]);
+    setSelectedTicketId(newTicketId);
 
     if (initialMessageText) {
       const firstMsg: Message = {
@@ -457,6 +581,17 @@ export default function App() {
     setQuickResponses((prev) => prev.filter((q) => q.id !== id));
   };
 
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        attendants={attendants}
+        departments={departments}
+        onLoginSuccess={handleLoginSuccess}
+        onRegisterUser={handleRegisterUser}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans antialiased">
       {/* Top Header */}
@@ -473,6 +608,7 @@ export default function App() {
         evolutionConfig={evolutionConfig}
         onNavigateToEvolution={() => setActiveTab('evolution')}
         unreadTotal={unreadTotal}
+        onLogout={handleLogout}
       />
 
       {/* Main Workspace Body */}
@@ -484,6 +620,7 @@ export default function App() {
           unreadCount={unreadTotal}
           pendingTicketsCount={pendingTicketsCount}
           onNewChat={() => setShowNewChatModal(true)}
+          userRole={currentAttendant.role}
         />
 
         {/* View tab router */}
@@ -534,14 +671,22 @@ export default function App() {
             {activeTicket && showCustomerSidebar && (
               <CustomerSidebar
                 ticket={activeTicket}
+                allTickets={tickets}
                 departments={departments}
                 attendants={attendants}
+                scheduledMessages={scheduledMessages}
+                reminders={reminders}
                 onUpdatePriority={handleUpdatePriority}
                 onOpenTransferModal={() => setShowTransferModal(true)}
                 onOpenCloseModal={() => setShowCloseModal(true)}
                 onAddTag={handleAddTag}
                 onRemoveTag={handleRemoveTag}
                 onCloseSidebar={() => setShowCustomerSidebar(false)}
+                onUpdateContact={handleUpdateContact}
+                onAddScheduledMessage={handleAddScheduledMessage}
+                onCancelScheduledMessage={handleCancelScheduledMessage}
+                onAddReminder={handleAddReminder}
+                onToggleReminder={handleToggleReminder}
               />
             )}
           </main>
@@ -580,6 +725,7 @@ export default function App() {
               contacts={contacts}
               onStartChatWithContact={handleStartChatWithContact}
               onOpenNewChatModal={() => setShowNewChatModal(true)}
+              onUpdateContact={handleUpdateContact}
             />
           </main>
         )}
