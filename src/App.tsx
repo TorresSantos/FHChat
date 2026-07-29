@@ -591,18 +591,58 @@ export default function App() {
     return false;
   };
 
-  const handleReopenTicket = (ticketId?: string) => {
+  const handleReopenTicket = (queueId: string, ticketId?: string) => {
     const targetId = ticketId || selectedTicketId;
     if (!targetId) return;
 
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === targetId
-          ? { ...t, status: 'in_progress', attendantId: currentAttendant.id, updatedAt: new Date().toISOString() }
-          : t
-      )
-    );
-    setSelectedTicketId(targetId);
+    const oldTicket = tickets.find((t) => t.id === targetId);
+    if (!oldTicket) return;
+
+    // Generate BRAND NEW protocol number
+    const newProtocol = '2026' + Math.floor(100000 + Math.random() * 900000);
+    const cleanPhone = oldTicket.contact.phone.replace(/\D/g, '');
+    const newTicketId = 'tick-' + cleanPhone + '-' + Date.now();
+
+    const targetQueue = queues.find((q) => q.id === queueId);
+    const targetDeptId = targetQueue?.departmentId || oldTicket.departmentId || 'dept-vendas';
+
+    const newTicket: Ticket = {
+      id: newTicketId,
+      protocol: newProtocol,
+      contact: oldTicket.contact,
+      departmentId: targetDeptId,
+      queueId: queueId,
+      status: 'in_progress',
+      priority: oldTicket.priority || 'medium',
+      connectionId: oldTicket.connectionId,
+      attendantId: currentAttendant.id,
+      lastMessageSnippet: `Atendimento reaberto (Novo Protocolo #${newProtocol})`,
+      lastMessageTimestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      unreadCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const initialNote: Message = {
+      id: 'msg-' + Date.now(),
+      ticketId: newTicketId,
+      sender: 'system',
+      senderName: 'Sistema',
+      type: 'text',
+      content: `Atendimento reaberto por ${currentAttendant.name} na fila ${targetQueue?.name || 'Fila Geral'}. Novo Protocolo #${newProtocol}. (Protocolo Anterior: #${oldTicket.protocol})`,
+      timestamp: timeStr,
+      status: 'delivered',
+      isInternalNote: true
+    };
+
+    setTickets((prev) => [newTicket, ...prev]);
+    setMessages((prev) => ({
+      ...prev,
+      [newTicketId]: [initialNote]
+    }));
+
+    setSelectedTicketId(newTicketId);
     setFilterTab('mine');
   };
 
@@ -712,7 +752,7 @@ export default function App() {
                     onUnlockWithPassword={handleUnlockWithPassword}
                     onOpenTransferModal={() => setIsTransferModalOpen(true)}
                     onOpenCloseTicketModal={() => setIsCloseTicketModalOpen(true)}
-                    onReopenTicket={() => handleReopenTicket(activeTicket.id)}
+                    onReopenTicket={(queueId) => handleReopenTicket(queueId, activeTicket.id)}
                     onAcceptTicket={handleAcceptTicket}
                     onPutOnHold={handlePutOnHold}
                   />

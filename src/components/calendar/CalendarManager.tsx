@@ -110,7 +110,7 @@ export const CalendarManager: React.FC<CalendarManagerProps> = ({
 
   // Current viewed month & year
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');

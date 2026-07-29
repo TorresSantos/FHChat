@@ -3,6 +3,7 @@ import { Phone, ArrowRightLeft, CheckCircle2, Lock, Sparkles, User, Tag, Clock, 
 import { Ticket, Message, QuickReply, Queue, Department, Attendant } from '../../types';
 import { checkQueueSchedule } from '../../utils/queueSchedule';
 import { MessageInput } from './MessageInput';
+import { ReopenModal } from './ReopenModal';
 
 interface ChatWindowProps {
   ticket: Ticket;
@@ -19,7 +20,7 @@ interface ChatWindowProps {
   onUnlockWithPassword?: (ticketId: string, passwordAttempt: string) => boolean;
   onOpenTransferModal: () => void;
   onOpenCloseTicketModal: () => void;
-  onReopenTicket?: () => void;
+  onReopenTicket?: (queueId: string) => void;
   onAcceptTicket?: (ticketId: string) => void;
   onPutOnHold?: (ticketId: string) => void;
 }
@@ -48,6 +49,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [requestedTickets, setRequestedTickets] = useState<Set<string>>(new Set());
   const [unlockedLocally, setUnlockedLocally] = useState<Set<string>>(new Set());
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+  const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
 
   const queue = queues.find((q) => q.id === ticket.queueId);
   const department = departments.find((d) => d.id === ticket.departmentId);
@@ -249,7 +251,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
           {ticket.status === 'resolved' ? (
             <button
-              onClick={onReopenTicket}
+              onClick={() => setIsReopenModalOpen(true)}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition-all shadow-md cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -495,6 +497,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         quickReplies={quickReplies}
         contactName={ticket.contact.name}
         departmentName={department?.name}
+      />
+
+      {/* Reopen Ticket Queue Selection Modal */}
+      <ReopenModal
+        isOpen={isReopenModalOpen}
+        onClose={() => setIsReopenModalOpen(false)}
+        queues={queues}
+        onConfirmReopen={(queueId) => {
+          if (onReopenTicket) {
+            onReopenTicket(queueId);
+          }
+        }}
       />
     </div>
   );
