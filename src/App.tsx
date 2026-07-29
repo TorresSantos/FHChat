@@ -613,9 +613,15 @@ export default function App() {
               connections={connections}
               departments={departments}
               queues={queues}
+              tickets={tickets}
               onAddConnection={(c) => setConnections((prev) => [...prev, c])}
               onUpdateConnection={(c) => setConnections((prev) => prev.map((item) => (item.id === c.id ? c : item)))}
               onDeleteConnection={(id) => setConnections((prev) => prev.filter((item) => item.id !== id))}
+              onMigrateTickets={(sourceId, targetId) =>
+                setTickets((prev) =>
+                  prev.map((t) => (t.connectionId === sourceId ? { ...t, connectionId: targetId } : t))
+                )
+              }
             />
           )}
 

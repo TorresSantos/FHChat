@@ -91,6 +91,7 @@ export interface Attendant {
 export interface WhatsAppConnection {
   id: string;
   name: string;
+  companyName?: string;
   phone: string;
   status: 'connected' | 'disconnected' | 'qrcode' | 'connecting';
   provider: 'baileys' | 'evolution';
