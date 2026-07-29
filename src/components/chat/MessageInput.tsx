@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Send, Paperclip, Zap, Sparkles, Smile, Lock, Mic, Square, Trash2, X, FileText, Image as ImageIcon, Volume2 } from 'lucide-react';
+import { Send, Paperclip, Zap, Sparkles, Smile, Lock, Mic, Square, Trash2, X, FileText, Image as ImageIcon, Volume2, Play, Pause, CheckCircle2 } from 'lucide-react';
 import { QuickReply } from '../../types';
+import { WaveformAudioPlayer } from '../media/WaveformAudioPlayer';
 
 interface MessageInputProps {
   onSendMessage: (text: string, isNote?: boolean, attachments?: { name: string; url: string; type: string }[]) => void;
@@ -20,7 +21,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showQuickMenu, setShowQuickMenu] = useState(false);
-  
+
   // Attachments State
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; url: string; type: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +32,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+
+  // Pre-Send Audio Listen/Confirm Preview State
+  const [recordedAudioPreview, setRecordedAudioPreview] = useState<{
+    url: string;
+    seconds: number;
+    name: string;
+  } | null>(null);
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -51,20 +59,31 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       const reader = new FileReader();
       reader.onload = (event) => {
         const url = event.target?.result as string;
-        setAttachedFiles((prev) => [
-          ...prev,
-          {
-            name: file.name,
+        const isAudio = file.type.startsWith('audio/');
+
+        if (isAudio && !recordedAudioPreview) {
+          // Put audio file directly into preview mode before sending!
+          setRecordedAudioPreview({
             url,
-            type: file.type.startsWith('image/')
-              ? 'image'
-              : file.type.startsWith('audio/')
-              ? 'audio'
-              : file.type.startsWith('video/')
-              ? 'video'
-              : 'document'
-          }
-        ]);
+            seconds: 10,
+            name: file.name
+          });
+        } else {
+          setAttachedFiles((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              url,
+              type: file.type.startsWith('image/')
+                ? 'image'
+                : file.type.startsWith('audio/')
+                ? 'audio'
+                : file.type.startsWith('video/')
+                ? 'video'
+                : 'document'
+            }
+          ]);
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -116,20 +135,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     audioChunksRef.current = [];
   };
 
-  const finishAndSendAudio = () => {
+  const stopRecordingAndPreview = () => {
     if (!mediaRecorderRef.current || !isRecording) return;
 
+    const recordedTime = recordingSeconds;
     mediaRecorderRef.current.onstop = () => {
       const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
       const audioUrl = URL.createObjectURL(audioBlob);
 
-      onSendMessage(`🎤 *Mensagem de Áudio* (${recordingSeconds}s)`, isInternalNote, [
-        {
-          name: `Audio_Voz_${Date.now()}.webm`,
-          url: audioUrl,
-          type: 'audio'
-        }
-      ]);
+      setRecordedAudioPreview({
+        url: audioUrl,
+        seconds: recordedTime,
+        name: `Audio_Voz_${Date.now()}.webm`
+      });
 
       setIsRecording(false);
       setRecordingSeconds(0);
@@ -138,6 +156,24 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     mediaRecorderRef.current.stop();
     clearInterval(timerIntervalRef.current);
+  };
+
+  const confirmSendAudioPreview = () => {
+    if (!recordedAudioPreview) return;
+
+    onSendMessage(`🎤 *Mensagem de Áudio* (${recordedAudioPreview.seconds}s)`, isInternalNote, [
+      {
+        name: recordedAudioPreview.name,
+        url: recordedAudioPreview.url,
+        type: 'audio'
+      }
+    ]);
+
+    setRecordedAudioPreview(null);
+  };
+
+  const discardAudioPreview = () => {
+    setRecordedAudioPreview(null);
   };
 
   const formatSeconds = (sec: number) => {
@@ -191,7 +227,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 setText(qr.content);
                 setShowQuickMenu(false);
               }}
-              className="w-full text-left p-2 hover:bg-gray-800 rounded-lg text-gray-200 transition-all flex items-center justify-between"
+              className="w-full text-left p-2 hover:bg-gray-800 rounded-lg text-gray-200 transition-all flex items-center justify-between cursor-pointer"
             >
               <span className="font-semibold text-emerald-400">{qr.shortcut}</span>
               <span className="text-gray-400 truncate max-w-xs">{qr.title}</span>
@@ -219,7 +255,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={() => removeAttachment(idx)}
-                className="text-gray-500 hover:text-rose-400 p-0.5 rounded"
+                className="text-gray-500 hover:text-rose-400 p-0.5 rounded cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -263,8 +299,40 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </button>
       </div>
 
-      {/* Recording Mode UI vs Standard Message Input */}
-      {isRecording ? (
+      {/* PRE-SEND AUDIO PREVIEW LISTEN & CONFIRM PANEL */}
+      {recordedAudioPreview ? (
+        <div className="bg-purple-950/40 border border-purple-800/60 rounded-2xl p-3 space-y-3 shadow-xl">
+          <div className="flex items-center justify-between text-xs text-purple-200 font-bold border-b border-purple-800/60 pb-1.5">
+            <span className="flex items-center gap-2">
+              <Volume2 className="w-4 h-4 text-purple-400" />
+              Prévia do Áudio Gravado — Ouça antes de enviar!
+            </span>
+            <span className="font-mono text-purple-300">{recordedAudioPreview.seconds}s</span>
+          </div>
+
+          <WaveformAudioPlayer src={recordedAudioPreview.url} className="w-full bg-gray-950/90" />
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={discardAudioPreview}
+              className="bg-gray-800 hover:bg-gray-700 text-rose-400 hover:text-rose-300 font-semibold text-xs px-3 py-1.5 rounded-xl border border-gray-700 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Descartar
+            </button>
+            <button
+              type="button"
+              onClick={confirmSendAudioPreview}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-1.5 rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+            >
+              <Send className="w-3.5 h-3.5" />
+              Confirmar &amp; Enviar Áudio
+            </button>
+          </div>
+        </div>
+      ) : isRecording ? (
+        /* Recording Mode Bar */
         <div className="bg-rose-950/40 border border-rose-800/60 rounded-2xl p-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
@@ -284,15 +352,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             </button>
             <button
               type="button"
-              onClick={finishAndSendAudio}
+              onClick={stopRecordingAndPreview}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md cursor-pointer"
             >
-              <Send className="w-4 h-4" />
-              Enviar Áudio
+              <Square className="w-3.5 h-3.5 fill-white" />
+              Parar &amp; Ouvir Prévia
             </button>
           </div>
         </div>
       ) : (
+        /* Standard Message Form */
         <form onSubmit={handleSend} className="flex items-end gap-2">
           <div className="flex-1 bg-gray-950 border border-gray-800 rounded-2xl p-2.5 flex items-center gap-2 focus-within:border-emerald-500 transition-all">
             {/* Quick Reply Button */}
@@ -355,4 +424,3 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     </div>
   );
 };
-

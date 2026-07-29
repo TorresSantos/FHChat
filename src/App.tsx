@@ -8,7 +8,8 @@ import {
   Attendant,
   WhatsAppConnection,
   QuickReply,
-  WebhookLog
+  WebhookLog,
+  AuthorizationRequest
 } from './types';
 import {
   initialDepartments,
@@ -58,6 +59,9 @@ export default function App() {
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
   const [authorizationRequests, setAuthorizationRequests] = useState<AuthorizationRequest[]>([]);
+
+  // Media Rotation state map (url -> angle)
+  const [imageRotations, setImageRotations] = useState<Record<string, number>>({});
 
   // Selected Chat & Filters
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -609,6 +613,7 @@ export default function App() {
     const newTicket: Ticket = {
       id: newTicketId,
       protocol: newProtocol,
+      contactId: oldTicket.contactId || oldTicket.contact.id,
       contact: oldTicket.contact,
       departmentId: targetDeptId,
       queueId: queueId,
@@ -755,9 +760,18 @@ export default function App() {
                     onReopenTicket={(queueId) => handleReopenTicket(queueId, activeTicket.id)}
                     onAcceptTicket={handleAcceptTicket}
                     onPutOnHold={handlePutOnHold}
+                    imageRotations={imageRotations}
+                    onRotationChange={(url, angle) =>
+                      setImageRotations((prev) => ({ ...prev, [url]: angle }))
+                    }
                   />
                   <CustomerSidebar
                     ticket={activeTicket}
+                    messages={activeMessages}
+                    imageRotations={imageRotations}
+                    onRotationChange={(url, angle) =>
+                      setImageRotations((prev) => ({ ...prev, [url]: angle }))
+                    }
                     onUpdateContact={(updated) => {
                       setContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
                       setTickets((prev) =>

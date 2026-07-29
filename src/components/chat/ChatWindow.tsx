@@ -1,9 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Phone, ArrowRightLeft, CheckCircle2, Lock, Sparkles, User, Tag, Clock, UserPlus, PauseCircle, PlayCircle, Utensils, KeyRound, Check, AlertCircle, History } from 'lucide-react';
+import { Phone, ArrowRightLeft, CheckCircle2, Lock, Sparkles, User, Tag, Clock, UserPlus, PauseCircle, PlayCircle, Utensils, KeyRound, Check, AlertCircle, History, Download, ExternalLink, Maximize2, Video } from 'lucide-react';
 import { Ticket, Message, QuickReply, Queue, Department, Attendant } from '../../types';
 import { checkQueueSchedule } from '../../utils/queueSchedule';
 import { MessageInput } from './MessageInput';
 import { ReopenModal } from './ReopenModal';
+import { ExportTicketModal } from './ExportTicketModal';
+import { WaveformAudioPlayer } from '../media/WaveformAudioPlayer';
+import { ImageViewerModal } from '../media/ImageViewerModal';
 
 interface ChatWindowProps {
   ticket: Ticket;
@@ -23,6 +26,8 @@ interface ChatWindowProps {
   onReopenTicket?: (queueId: string) => void;
   onAcceptTicket?: (ticketId: string) => void;
   onPutOnHold?: (ticketId: string) => void;
+  imageRotations?: Record<string, number>;
+  onRotationChange?: (url: string, angle: number) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -42,14 +47,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onOpenCloseTicketModal,
   onReopenTicket,
   onAcceptTicket,
-  onPutOnHold
+  onPutOnHold,
+  imageRotations = {},
+  onRotationChange
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [passwordInputs, setPasswordInputs] = useState<Record<string, string>>({});
   const [requestedTickets, setRequestedTickets] = useState<Set<string>>(new Set());
   const [unlockedLocally, setUnlockedLocally] = useState<Set<string>>(new Set());
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+
+  // Modals state
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // Lightbox Image viewer
+  const [selectedImageForLightbox, setSelectedImageForLightbox] = useState<string | null>(null);
 
   const queue = queues.find((q) => q.id === ticket.queueId);
   const department = departments.find((d) => d.id === ticket.departmentId);
@@ -449,18 +462,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div className="text-[10px] font-bold text-emerald-200 opacity-90">{msg.senderName}</div>
                   )}
 
-                  {/* Render Media Content if present */}
+                  {/* Render Rich Media Content */}
                   {msg.mediaUrl && (
                     <div className="my-1.5">
                       {msg.type === 'image' ? (
-                        <img
-                          src={msg.mediaUrl}
-                          alt="Anexo enviado"
-                          className="max-w-xs max-h-60 rounded-xl object-cover border border-black/20"
-                        />
+                        <div
+                          onClick={() => setSelectedImageForLightbox(msg.mediaUrl || null)}
+                          className="relative group cursor-pointer inline-block overflow-hidden rounded-xl border border-black/20"
+                        >
+                          <img
+                            src={msg.mediaUrl}
+                            alt="Anexo foto"
+                            className="max-w-xs max-h-60 rounded-xl object-cover transition-transform duration-200"
+                            style={{ transform: `rotate(${imageRotations[msg.mediaUrl] || 0}deg)` }}
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl gap-1 text-white font-medium text-[11px]">
+                            <Maximize2 className="w-4 h-4" />
+                            <span>Zoom / Girar</span>
+                          </div>
+                        </div>
                       ) : msg.type === 'audio' ? (
-                        <div className="bg-black/20 p-2 rounded-xl flex flex-col gap-1">
-                          <audio controls src={msg.mediaUrl} className="w-full h-8 max-w-xs accent-emerald-500" />
+                        <div className="my-1 min-w-[240px] max-w-xs">
+                          <WaveformAudioPlayer src={msg.mediaUrl} />
+                        </div>
+                      ) : msg.type === 'video' ? (
+                        <div className="my-1 max-w-xs rounded-xl overflow-hidden border border-black/20 bg-black">
+                          <video src={msg.mediaUrl} controls className="w-full max-h-60" />
                         </div>
                       ) : (
                         <a
@@ -468,7 +495,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                           download
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-2 bg-black/20 p-2 rounded-xl hover:bg-black/30 transition-all font-medium underline text-xs"
+                          className="flex items-center gap-2 bg-black/20 p-2.5 rounded-xl hover:bg-black/30 transition-all font-medium text-xs border border-white/10"
                         >
                           📄 Download Anexo Documento
                         </a>
@@ -510,6 +537,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           }
         }}
       />
+
+      {/* Export Ticket History Modal */}
+      <ExportTicketModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        ticket={ticket}
+        messages={messages}
+      />
+
+      {/* Image Lightbox Viewer Modal */}
+      {selectedImageForLightbox && (
+        <ImageViewerModal
+          isOpen={!!selectedImageForLightbox}
+          onClose={() => setSelectedImageForLightbox(null)}
+          imageUrl={selectedImageForLightbox}
+          initialRotation={imageRotations[selectedImageForLightbox] || 0}
+          onRotationChange={onRotationChange}
+        />
+      )}
     </div>
   );
 };
