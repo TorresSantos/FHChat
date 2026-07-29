@@ -1,923 +1,561 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Contact,
+  Ticket,
+  Message,
+  Department,
+  Queue,
+  Attendant,
+  WhatsAppConnection,
+  QuickReply,
+  WebhookLog
+} from './types';
+import {
+  initialDepartments,
+  initialQueues,
+  initialAttendants,
+  initialConnections,
+  initialContacts,
+  initialTickets,
+  initialQuickReplies
+} from './data/mockData';
+
 import { Header } from './components/Header';
-import { SidebarNav, NavTab } from './components/SidebarNav';
+import { SidebarNav } from './components/SidebarNav';
 import { ChatList } from './components/chat/ChatList';
 import { ChatWindow } from './components/chat/ChatWindow';
 import { CustomerSidebar } from './components/chat/CustomerSidebar';
+import { ConnectionsManagement } from './components/connections/ConnectionsManagement';
+import { ContactsManager } from './components/contacts/ContactsManager';
+import { AttendantsManagement } from './components/attendants/AttendantsManagement';
+import { QueuesManagement } from './components/queues/QueuesManagement';
+import { QuickRepliesManager } from './components/quickReplies/QuickRepliesManager';
+import { ReportsManager } from './components/reports/ReportsManager';
+import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
+import { EvolutionSettings } from './components/evolution/EvolutionSettings';
+import { VisualBotFlowBuilder } from './components/bot/VisualBotFlowBuilder';
+import { CalendarManager } from './components/calendar/CalendarManager';
+import { AuthScreen } from './components/auth/AuthScreen';
+
 import { TransferModal } from './components/chat/TransferModal';
 import { CloseTicketModal } from './components/chat/CloseTicketModal';
 import { NewChatModal } from './components/chat/NewChatModal';
-import { AuthScreen } from './components/auth/AuthScreen';
-
-import { EvolutionSettings } from './components/evolution/EvolutionSettings';
-import { AttendantsManagement } from './components/attendants/AttendantsManagement';
-import { QuickRepliesManager } from './components/quickReplies/QuickRepliesManager';
-import { ContactsManager } from './components/contacts/ContactsManager';
-import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
-import { ReportsManager } from './components/reports/ReportsManager';
-import { ConnectionsManagement } from './components/connections/ConnectionsManagement';
-import { QueuesManagement } from './components/queues/QueuesManagement';
-import { CalendarManager } from './components/calendar/CalendarManager';
-
-import {
-  initialDepartments,
-  initialAttendants,
-  initialContacts,
-  initialTickets,
-  initialMessages,
-  initialQuickResponses,
-  initialEvolutionConfig,
-  initialWebhookLogs,
-  initialQueues,
-  initialConnections,
-  initialBots
-} from './data/mockData';
-
-import {
-  Ticket,
-  Message,
-  Attendant,
-  Department,
-  Contact,
-  QuickResponse,
-  EvolutionConfig,
-  WebhookLog,
-  Priority,
-  Role,
-  AttendantStatus,
-  Queue,
-  WhatsAppConnection,
-  BotFlow,
-  ScheduledMessage,
-  TicketReminder
-} from './types';
 
 export default function App() {
-  // Navigation & UI State
-  const [activeTab, setActiveTab] = useState<NavTab>('chats');
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>('tick-1');
-  const [showCustomerSidebar, setShowCustomerSidebar] = useState<boolean>(true);
-
-  // Modals
-  const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
-  const [showCloseModal, setShowCloseModal] = useState<boolean>(false);
-  const [showNewChatModal, setShowNewChatModal] = useState<boolean>(false);
-
-  // Main Data States
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
-  const [attendants, setAttendants] = useState<Attendant[]>(initialAttendants);
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
-  const [messages, setMessages] = useState<Record<string, Message[]>>(initialMessages);
-  const [quickResponses, setQuickResponses] = useState<QuickResponse[]>(initialQuickResponses);
-  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>(initialEvolutionConfig);
-  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>(initialWebhookLogs);
-  const [queues, setQueues] = useState<Queue[]>(initialQueues);
-  const [connections, setConnections] = useState<WhatsAppConnection[]>(initialConnections);
-  const [bots, setBots] = useState<BotFlow[]>(initialBots);
-
-  // Connection Handlers
-  const handleAddConnection = (conn: Omit<WhatsAppConnection, 'id' | 'updatedAt'>) => {
-    const created: WhatsAppConnection = {
-      ...conn,
-      id: 'conn-' + Date.now(),
-      updatedAt: new Date().toISOString()
-    };
-    setConnections((prev) => [...prev, created]);
-  };
-
-  const handleUpdateConnection = (conn: WhatsAppConnection) => {
-    setConnections((prev) => prev.map((c) => (c.id === conn.id ? conn : c)));
-  };
-
-  const handleDeleteConnection = (id: string) => {
-    setConnections((prev) => prev.filter((c) => c.id !== id));
-  };
-
-  const handleTestConnection = async (conn: WhatsAppConnection): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/evolution/status?instance=' + encodeURIComponent(conn.instanceName));
-      if (res.ok) {
-        return true;
-      }
-    } catch {
-      // ignore
-    }
-    return true; // Simulation success
-  };
-
-  // Queue Handlers
-  const handleAddQueue = (q: Omit<Queue, 'id'>) => {
-    const created: Queue = {
-      ...q,
-      id: 'queue-' + Date.now()
-    };
-    setQueues((prev) => [...prev, created]);
-  };
-
-  const handleUpdateQueue = (q: Queue) => {
-    setQueues((prev) => prev.map((item) => (item.id === q.id ? q : item)));
-  };
-
-  const handleDeleteQueue = (id: string) => {
-    setQueues((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  // Scheduled Messages State
-  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([
-    {
-      id: 'sched-1',
-      ticketId: 'tick-1',
-      contactId: 'c-1',
-      contactName: 'Mariana Costa',
-      contactPhone: '+55 11 98765-4321',
-      connectionId: 'conn-1',
-      connectionName: 'WhatsApp Principal',
-      connectionProvider: 'evolution',
-      content: 'Olá Mariana! Passando para confirmar se deu tudo certo com o seu pedido?',
-      scheduledAt: new Date(Date.now() + 86400000).toISOString(),
-      status: 'pending',
-      frequency: 'once',
-      createdAt: new Date().toISOString()
-    }
-  ]);
-
-  // Reminders / Follow-up State (Feature #5)
-  const [reminders, setReminders] = useState<TicketReminder[]>([
-    {
-      id: 'rem-1',
-      ticketId: 'tick-1',
-      title: 'Ligar para confirmar o envio da proposta assinada',
-      remindAt: new Date(Date.now() + 14400000).toISOString(),
-      isCompleted: false,
-      createdAt: new Date().toISOString()
-    }
-  ]);
-
-  const handleAddScheduledMessage = (newSched: ScheduledMessage) => {
-    setScheduledMessages((prev) => [...prev, newSched]);
-  };
-
-  const handleCancelScheduledMessage = (schedId: string) => {
-    setScheduledMessages((prev) =>
-      prev.map((s) => (s.id === schedId ? { ...s, status: 'cancelled' } : s))
-    );
-  };
-
-  const handleAddReminder = (newRem: TicketReminder) => {
-    setReminders((prev) => [...prev, newRem]);
-  };
-
-  const handleToggleReminder = (remId: string) => {
-    setReminders((prev) =>
-      prev.map((r) => (r.id === remId ? { ...r, isCompleted: !r.isCompleted } : r))
-    );
-  };
-
-  // Toggle ticket waiting status
-  const handleToggleWaitingStatus = (ticketId: string) => {
-    const targetTicket = tickets.find((t) => t.id === ticketId);
-    if (!targetTicket) return;
-
-    const isCurrentlyWaiting = targetTicket.status === 'waiting';
-    const newStatus = isCurrentlyWaiting ? 'in_progress' : 'waiting';
-
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? { ...t, status: newStatus, assignedAttendantId: t.assignedAttendantId || currentAttendant.id }
-          : t
-      )
-    );
-
-    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const noteMsg: Message = {
-      id: 'msg-' + Date.now(),
-      ticketId,
-      sender: 'attendant',
-      senderName: currentAttendant.name,
-      type: 'text',
-      content: !isCurrentlyWaiting
-        ? '⏳ Atendimento colocado em ESPERA (Aguardando cliente responder).'
-        : '🟢 Atendimento RETOMADO pelo atendente.',
-      timestamp: time,
-      isInternalNote: true,
-      status: 'read'
-    };
-
-    setMessages((prev) => ({
-      ...prev,
-      [ticketId]: [...(prev[ticketId] || []), noteMsg]
-    }));
-  };
-
-  // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-
-  // Current Logged-in Attendant
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [currentAttendant, setCurrentAttendant] = useState<Attendant>(initialAttendants[0]);
 
-  // Restrict tabs for common attendants ('attendant')
+  // Main State Collections
+  const [activeTab, setActiveTab] = useState('chat');
+  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
+  const [queues, setQueues] = useState<Queue[]>(initialQueues);
+  const [attendants, setAttendants] = useState<Attendant[]>(initialAttendants);
+  const [connections, setConnections] = useState<WhatsAppConnection[]>(initialConnections);
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
+  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>(initialQuickReplies);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+
+  // Selected Chat & Filters
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [filterTab, setFilterTab] = useState<'all' | 'mine' | 'pending'>('all');
+  const [selectedQueueId, setSelectedQueueId] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isCloseTicketModalOpen, setIsCloseTicketModalOpen] = useState(false);
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+
+  // Track processed Baileys message IDs to prevent duplicates
+  const processedBaileysMsgIdsRef = useRef<Set<string>>(new Set());
+
+  // Real-time Baileys incoming message sync effect
   useEffect(() => {
-    if (currentAttendant.role === 'attendant') {
-      if (['connections', 'queues', 'evolution', 'attendants'].includes(activeTab)) {
-        setActiveTab('chats');
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/baileys/all-messages');
+        const data = await res.json();
+        if (!data.success || !Array.isArray(data.sessions)) return;
+
+        data.sessions.forEach((sess: { sessionId: string; messages: any[] }) => {
+          if (!sess.messages) return;
+
+          sess.messages.forEach((msg: {
+            id: string;
+            fromMe: boolean;
+            sender: string;
+            senderName: string;
+            phone: string;
+            text: string;
+            timestamp: string;
+            avatarUrl?: string | null;
+          }) => {
+            if (processedBaileysMsgIdsRef.current.has(msg.id)) return;
+            processedBaileysMsgIdsRef.current.add(msg.id);
+
+            const cleanPhone = msg.phone.replace(/\D/g, '');
+            if (!cleanPhone) return;
+
+            const text = msg.text;
+            const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const isBotMsg = msg.senderName === 'Bot FHChat';
+
+            // 1. Find or create Contact
+            setContacts((prevContacts) => {
+              let existing = prevContacts.find((c) => c.phone.replace(/\D/g, '') === cleanPhone);
+
+              if (!existing) {
+                const contactName = (!msg.fromMe && msg.senderName)
+                  ? msg.senderName
+                  : `Cliente ${cleanPhone.slice(-4)}`;
+
+                existing = {
+                  id: 'cont-' + cleanPhone,
+                  name: contactName,
+                  phone: `+${cleanPhone}`,
+                  email: `${cleanPhone}@whatsapp.user`,
+                  avatar: msg.avatarUrl || undefined,
+                  tags: ['WhatsApp', 'Baileys'],
+                  createdAt: new Date().toISOString()
+                };
+                return [...prevContacts, existing];
+              } else {
+                // Update avatar if received real WhatsApp profile pic
+                if (msg.avatarUrl && existing.avatar !== msg.avatarUrl) {
+                  return prevContacts.map((c) =>
+                    c.id === existing!.id ? { ...c, avatar: msg.avatarUrl || undefined } : c
+                  );
+                }
+                return prevContacts;
+              }
+            });
+
+            // 2. Find contact instance for ticket binding
+            const contactId = 'cont-' + cleanPhone;
+
+            // Determine queue based on text option 1, 2, 3, 4
+            let queueId = 'queue-1';
+            let deptId = 'dept-vendas';
+            const optionDigit = text.trim();
+            if (optionDigit === '1') {
+              queueId = 'queue-1';
+              deptId = 'dept-vendas';
+            } else if (optionDigit === '2') {
+              queueId = 'queue-2';
+              deptId = 'dept-suporte';
+            } else if (optionDigit === '3') {
+              queueId = 'queue-3';
+              deptId = 'dept-financeiro';
+            } else if (optionDigit === '4') {
+              queueId = 'queue-4';
+              deptId = 'dept-geral';
+            }
+
+            // 3. Update or create TICKET for this contact
+            let targetTicketId = '';
+
+            setTickets((prevTickets) => {
+              // Look up active ticket by contact phone / contact ID!
+              const existingTicket = prevTickets.find(
+                (t) => t.contact.phone.replace(/\D/g, '') === cleanPhone && t.status !== 'resolved'
+              );
+
+              if (existingTicket) {
+                targetTicketId = existingTicket.id;
+                return prevTickets.map((t) =>
+                  t.id === existingTicket.id
+                    ? {
+                        ...t,
+                        contact: {
+                          ...t.contact,
+                          avatar: msg.avatarUrl || t.contact.avatar
+                        },
+                        queueId: (optionDigit >= '1' && optionDigit <= '4') ? queueId : t.queueId,
+                        departmentId: (optionDigit >= '1' && optionDigit <= '4') ? deptId : t.departmentId,
+                        lastMessageSnippet: text,
+                        lastMessageTimestamp: timeStr,
+                        unreadCount: (!msg.fromMe && selectedTicketId !== t.id) ? (t.unreadCount || 0) + 1 : t.unreadCount,
+                        updatedAt: new Date().toISOString()
+                      }
+                    : t
+                );
+              } else {
+                // Create single new ticket for this contact!
+                targetTicketId = 'tick-' + cleanPhone + '-' + Date.now();
+                const newContact: Contact = {
+                  id: contactId,
+                  name: (!msg.fromMe && msg.senderName) ? msg.senderName : `Cliente ${cleanPhone.slice(-4)}`,
+                  phone: `+${cleanPhone}`,
+                  avatar: msg.avatarUrl || undefined,
+                  tags: ['WhatsApp', 'Baileys'],
+                  createdAt: new Date().toISOString()
+                };
+
+                const newTicket: Ticket = {
+                  id: targetTicketId,
+                  protocol: '2026' + Math.floor(100000 + Math.random() * 900000),
+                  contactId: newContact.id,
+                  contact: newContact,
+                  departmentId: deptId,
+                  queueId: queueId,
+                  status: 'pending',
+                  priority: 'medium',
+                  connectionId: sess.sessionId,
+                  unreadCount: msg.fromMe ? 0 : 1,
+                  lastMessageSnippet: text,
+                  lastMessageTimestamp: timeStr,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                };
+
+                return [newTicket, ...prevTickets];
+              }
+            });
+
+            // 4. Append message to target ticket messages store
+            setTimeout(() => {
+              const activeTId = targetTicketId || ('tick-' + cleanPhone);
+              setMessages((prevMsgs) => {
+                const currentList = prevMsgs[activeTId] || [];
+                if (currentList.some((m) => m.id === msg.id)) return prevMsgs;
+
+                const newMsg: Message = {
+                  id: msg.id,
+                  ticketId: activeTId,
+                  sender: msg.fromMe ? (isBotMsg ? 'bot' : 'attendant') : 'contact',
+                  senderName: msg.senderName,
+                  type: 'text',
+                  content: text,
+                  timestamp: timeStr,
+                  status: 'delivered'
+                };
+
+                return {
+                  ...prevMsgs,
+                  [activeTId]: [...currentList, newMsg]
+                };
+              });
+            }, 50);
+          });
+        });
+      } catch (err) {
+        console.warn('[Baileys Sync] Polling error:', err);
       }
-    }
-  }, [currentAttendant.role, activeTab]);
+    }, 2000);
 
-  const handleLoginSuccess = (attendant: Attendant) => {
-    setCurrentAttendant(attendant);
-    setIsAuthenticated(true);
-  };
+    return () => clearInterval(interval);
+  }, [selectedTicketId]);
 
-  const handleRegisterUser = (newAttendantData: Omit<Attendant, 'id' | 'activeTicketsCount'>) => {
-    const createdAttendant: Attendant = {
-      ...newAttendantData,
-      id: 'att-' + Date.now(),
-      activeTicketsCount: 0
-    };
-    setAttendants((prev) => [createdAttendant, ...prev]);
-    setCurrentAttendant(createdAttendant);
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-  };
-
-  // Selected Ticket Helper
+  // Selected Active Ticket Helper
   const activeTicket = tickets.find((t) => t.id === selectedTicketId) || null;
   const activeMessages = selectedTicketId ? messages[selectedTicketId] || [] : [];
 
-  // Total unread messages across tickets
-  const unreadTotal = tickets.reduce((acc, t) => acc + (t.unreadCount || 0), 0);
-  const pendingTicketsCount = tickets.filter((t) => t.status === 'pending').length;
-
-  // Handlers
-  const handleSelectTicket = (ticketId: string) => {
-    setSelectedTicketId(ticketId);
-    // Clear unread count for clicked ticket
-    setTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, unreadCount: 0 } : t))
-    );
-  };
-
-  const handleSendMessage = async (
-    text: string,
-    isNote: boolean = false,
-    type: 'text' | 'image' | 'audio' | 'document' = 'text'
-  ) => {
+  // Send Message Handler
+  const handleSendMessage = async (text: string, isNote: boolean = false) => {
     if (!selectedTicketId || !activeTicket) return;
 
-    const newMsgId = 'msg-' + Date.now();
-    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const newMsg: Message = {
-      id: newMsgId,
+      id: 'msg-out-' + Date.now(),
       ticketId: selectedTicketId,
-      sender: 'attendant',
+      sender: isNote ? 'system' : 'attendant',
       senderName: currentAttendant.name,
-      type: type,
+      type: 'text',
       content: text,
-      timestamp: currentTime,
+      timestamp: timeStr,
       status: 'sent',
-      isInternalNote: isNote,
-      audioDuration: type === 'audio' ? '0:12' : undefined
+      isInternalNote: isNote
     };
 
-    // Update messages state
     setMessages((prev) => ({
       ...prev,
       [selectedTicketId]: [...(prev[selectedTicketId] || []), newMsg]
     }));
 
-    // Update ticket snippet & status
     setTickets((prev) =>
       prev.map((t) =>
         t.id === selectedTicketId
           ? {
               ...t,
-              status: t.status === 'pending' ? 'in_progress' : t.status,
-              assignedAttendantId: t.assignedAttendantId || currentAttendant.id,
-              lastMessageSnippet: isNote ? `[Nota Interna] ${text}` : text,
-              lastMessageTimestamp: currentTime,
+              lastMessageSnippet: isNote ? `[Nota]: ${text}` : text,
+              lastMessageTimestamp: timeStr,
               updatedAt: new Date().toISOString()
             }
           : t
       )
     );
 
-    // Dispatch via Evolution API Proxy Endpoint in background
+    // If real WhatsApp response (not internal note), send via Baileys API!
     if (!isNote) {
+      const activeConn = connections.find((c) => c.provider === 'baileys') || connections[0];
+      const sessionId = activeConn?.baileysSessionId || activeConn?.instanceName || 'default_baileys';
+
       try {
-        fetch('/api/evolution/send-message', {
+        await fetch('/api/baileys/send-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            apiUrl: evolutionConfig.apiUrl,
-            apiKey: evolutionConfig.apiKey,
-            instanceName: evolutionConfig.instanceName,
+            sessionId,
             number: activeTicket.contact.phone,
-            text: text
+            text
           })
         });
       } catch (e) {
-        console.warn('API send fail:', e);
+        console.error('[Baileys Send] Error sending outbound message:', e);
       }
-
-      // Simulate customer auto-reply after 3 seconds for realistic demonstration
-      setTimeout(() => {
-        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const autoReplies = [
-          'Perfeito! Muito obrigado pela atenção e pelo excelente atendimento.',
-          'Entendido! Vou verificar e qualquer dúvida retorno por aqui.',
-          'Ótimo! Obrigado pelas orientações.',
-          'Anotado! Gostei muito da agilidade de vocês no WhatsApp.'
-        ];
-        const replyText = autoReplies[Math.floor(Math.random() * autoReplies.length)];
-
-        const incomingMsg: Message = {
-          id: 'msg-in-' + Date.now(),
-          ticketId: selectedTicketId,
-          sender: 'contact',
-          type: 'text',
-          content: replyText,
-          timestamp: replyTime,
-          status: 'delivered'
-        };
-
-        setMessages((prevMsgs) => ({
-          ...prevMsgs,
-          [selectedTicketId]: [...(prevMsgs[selectedTicketId] || []), incomingMsg]
-        }));
-
-        setTickets((prevTickets) =>
-          prevTickets.map((t) =>
-            t.id === selectedTicketId
-              ? {
-                  ...t,
-                  status: t.status === 'waiting' ? 'in_progress' : t.status,
-                  lastMessageSnippet: replyText,
-                  lastMessageTimestamp: replyTime,
-                  updatedAt: new Date().toISOString()
-                }
-              : t
-          )
-        );
-
-        // Add webhook log simulation
-        setWebhookLogs((prevLogs) => [
-          {
-            id: 'log-' + Date.now(),
-            event: 'MESSAGES_UPSERT',
-            timestamp: new Date().toISOString(),
-            status: 'success',
-            payloadSnippet: `{"from": "${activeTicket.contact.phone}", "message": "${replyText}"}`
-          },
-          ...prevLogs
-        ]);
-      }, 3500);
     }
   };
 
-  const handleConfirmTransfer = (
-    ticketId: string,
-    departmentId: string,
-    attendantId?: string,
-    note?: string
-  ) => {
+  // Ticket Actions
+  const handleAcceptTicket = (ticketId: string) => {
     setTickets((prev) =>
       prev.map((t) =>
         t.id === ticketId
+          ? { ...t, status: 'in_progress', attendantId: currentAttendant.id, updatedAt: new Date().toISOString() }
+          : t
+      )
+    );
+    setSelectedTicketId(ticketId);
+  };
+
+  const handleTransferTicket = (queueId?: string, attendantId?: string) => {
+    if (!selectedTicketId) return;
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === selectedTicketId
           ? {
               ...t,
-              departmentId,
-              assignedAttendantId: attendantId || undefined,
+              queueId: queueId || t.queueId,
+              attendantId: attendantId || undefined,
               status: attendantId ? 'in_progress' : 'pending',
               updatedAt: new Date().toISOString()
             }
           : t
       )
     );
-
-    if (note) {
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const transferNoteMsg: Message = {
-        id: 'msg-tr-' + Date.now(),
-        ticketId,
-        sender: 'system',
-        type: 'note',
-        content: `Transfereção de setor: ${note}`,
-        timestamp: time,
-        isInternalNote: true,
-        senderName: currentAttendant.name
-      };
-
-      setMessages((prev) => ({
-        ...prev,
-        [ticketId]: [...(prev[ticketId] || []), transferNoteMsg]
-      }));
-    }
   };
 
-  const handleConfirmClose = (ticketId: string, rating?: number, summary?: string) => {
-    const targetTicket = tickets.find((t) => t.id === ticketId);
-
+  const handleCloseTicket = (reason?: string) => {
+    if (!selectedTicketId) return;
     setTickets((prev) =>
       prev.map((t) =>
-        t.id === ticketId
-          ? {
-              ...t,
-              status: 'resolved',
-              closedAt: new Date().toISOString(),
-              rating
-            }
+        t.id === selectedTicketId
+          ? { ...t, status: 'resolved', updatedAt: new Date().toISOString() }
           : t
       )
     );
-
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const newMsgs: Message[] = [];
-
-    // 1. Send automatic completion farewell message if connection has it configured
-    if (targetTicket) {
-      const conn =
-        connections.find((c) => c.id === targetTicket.connectionId) ||
-        connections.find((c) => c.isDefault) ||
-        connections[0];
-
-      if (conn && conn.completionMessage) {
-        newMsgs.push({
-          id: 'msg-completion-' + Date.now(),
-          ticketId,
-          sender: 'bot',
-          type: 'text',
-          content: conn.completionMessage,
-          timestamp: time,
-          status: 'sent',
-          senderName: 'Sistema WhatsApp Auto'
-        });
-      }
-    }
-
-    // 2. Internal summary note
-    if (summary) {
-      newMsgs.push({
-        id: 'msg-cl-' + Date.now(),
-        ticketId,
-        sender: 'system',
-        type: 'note',
-        content: `Atendimento Finalizado. Resumo: ${summary}`,
-        timestamp: time,
-        isInternalNote: true,
-        senderName: currentAttendant.name
-      });
-    }
-
-    if (newMsgs.length > 0) {
-      setMessages((prev) => ({
-        ...prev,
-        [ticketId]: [...(prev[ticketId] || []), ...newMsgs]
-      }));
-    }
+    setSelectedTicketId(null);
   };
 
-  const handleUpdateContact = (updatedContact: Contact) => {
-    setContacts((prev) =>
-      prev.map((c) => (c.id === updatedContact.id ? updatedContact : c))
-    );
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.contactId === updatedContact.id ? { ...t, contact: updatedContact } : t
-      )
-    );
-  };
-
-  const handleCreateNewChat = (
-    name: string,
-    phone: string,
-    departmentId: string,
-    initialMessageText?: string,
-    connectionId?: string
-  ) => {
-    // Check if contact already exists by phone
-    const existingContact = contacts.find((c) => c.phone === phone);
-    const contactToUse: Contact = existingContact || {
-      id: 'cont-' + Date.now(),
+  const handleCreateNewChat = (name: string, phone: string, queueId: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const newContact: Contact = {
+      id: 'cont-' + cleanPhone,
       name,
-      phone,
-      tags: ['Novo Lead'],
-      createdAt: new Date().toISOString(),
-      lastContactedAt: new Date().toISOString()
+      phone: `+${cleanPhone}`,
+      tags: ['Manual', 'WhatsApp'],
+      createdAt: new Date().toISOString()
     };
-
-    const newTicketId = 'tick-' + Date.now();
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const today = new Date();
-    const protocolStr = `PROT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`;
 
     const newTicket: Ticket = {
-      id: newTicketId,
-      contactId: contactToUse.id,
-      contact: contactToUse,
-      departmentId,
-      connectionId: connectionId || connections[0]?.id,
-      assignedAttendantId: currentAttendant.id,
-      protocol: protocolStr,
+      id: 'tick-' + cleanPhone + '-' + Date.now(),
+      protocol: '2026' + Math.floor(100000 + Math.random() * 900000),
+      contactId: newContact.id,
+      contact: newContact,
+      departmentId: 'dept-vendas',
+      queueId,
+      attendantId: currentAttendant.id,
       status: 'in_progress',
       priority: 'medium',
-      tags: ['Atendimento'],
-      unreadCount: 0,
+      lastMessageSnippet: 'Atendimento iniciado manualmente',
+      lastMessageTimestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastMessageSnippet: initialMessageText || 'Atendimento iniciado',
-      lastMessageTimestamp: time
+      updatedAt: new Date().toISOString()
     };
 
-    if (!existingContact) {
-      setContacts((prev) => [contactToUse, ...prev]);
-    }
+    setContacts((prev) => [...prev, newContact]);
     setTickets((prev) => [newTicket, ...prev]);
-    setSelectedTicketId(newTicketId);
-
-    if (initialMessageText) {
-      const firstMsg: Message = {
-        id: 'msg-first-' + Date.now(),
-        ticketId: newTicketId,
-        sender: 'attendant',
-        senderName: currentAttendant.name,
-        type: 'text',
-        content: initialMessageText,
-        timestamp: time,
-        status: 'sent'
-      };
-      setMessages((prev) => ({ ...prev, [newTicketId]: [firstMsg] }));
-    } else {
-      setMessages((prev) => ({ ...prev, [newTicketId]: [] }));
-    }
-
-    setSelectedTicketId(newTicketId);
-    setActiveTab('chats');
-  };
-
-  const handleStartChatWithContact = (contact: Contact) => {
-    // Check if open ticket exists
-    const existing = tickets.find((t) => t.contactId === contact.id && t.status !== 'resolved');
-    if (existing) {
-      setSelectedTicketId(existing.id);
-    } else {
-      handleCreateNewChat(contact.name, contact.phone, departments[0]?.id || 'dept-vendas');
-    }
-    setActiveTab('chats');
-  };
-
-  const handleAcceptTicket = (ticketId: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? {
-              ...t,
-              status: 'in_progress',
-              assignedAttendantId: currentAttendant.id,
-              updatedAt: new Date().toISOString()
-            }
-          : t
-      )
-    );
-    setSelectedTicketId(ticketId);
-  };
-
-  const handleUpdatePriority = (ticketId: string, priority: Priority) => {
-    setTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, priority } : t))
-    );
-  };
-
-  const handleAddTag = (ticketId: string, tag: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId && !t.tags.includes(tag)
-          ? { ...t, tags: [...t.tags, tag] }
-          : t
-      )
-    );
-  };
-
-  const handleRemoveTag = (ticketId: string, tag: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId ? { ...t, tags: t.tags.filter((item) => item !== tag) } : t
-      )
-    );
-  };
-
-  const handleAddAttendant = (newAtt: Omit<Attendant, 'id' | 'activeTicketsCount'>) => {
-    const created: Attendant = {
-      ...newAtt,
-      id: 'att-' + Date.now(),
-      activeTicketsCount: 0
-    };
-    setAttendants((prev) => [...prev, created]);
-  };
-
-  const handleUpdateAttendant = (updated: Attendant) => {
-    setAttendants((prev) =>
-      prev.map((a) => (a.id === updated.id ? updated : a))
-    );
-    // If updating current logged-in attendant, sync
-    if (updated.id === currentAttendant.id) {
-      setCurrentAttendant(updated);
-    }
-  };
-
-  const handleDeleteAttendant = (id: string) => {
-    setAttendants((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  const handleAddQuickResponse = (qr: Omit<QuickResponse, 'id'>) => {
-    const created: QuickResponse = {
-      ...qr,
-      id: 'qr-' + Date.now()
-    };
-    setQuickResponses((prev) => [...prev, created]);
-  };
-
-  const handleDeleteQuickResponse = (id: string) => {
-    setQuickResponses((prev) => prev.filter((q) => q.id !== id));
+    setSelectedTicketId(newTicket.id);
   };
 
   if (!isAuthenticated) {
     return (
       <AuthScreen
         attendants={attendants}
-        departments={departments}
-        onLoginSuccess={handleLoginSuccess}
-        onRegisterUser={handleRegisterUser}
+        onLogin={(email) => {
+          const match = attendants.find((a) => a.email === email) || attendants[0];
+          setCurrentAttendant(match);
+          setIsAuthenticated(true);
+        }}
       />
     );
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans antialiased">
-      {/* Top Header */}
+    <div className="flex flex-col h-screen w-screen bg-gray-950 text-gray-100 overflow-hidden font-sans select-none">
       <Header
         currentAttendant={currentAttendant}
-        attendants={attendants}
-        onSelectAttendant={setCurrentAttendant}
-        onUpdateAttendantStatus={(status) => {
-          setCurrentAttendant((prev) => ({ ...prev, status }));
-          setAttendants((prev) =>
-            prev.map((a) => (a.id === currentAttendant.id ? { ...a, status } : a))
-          );
-        }}
-        evolutionConfig={evolutionConfig}
-        onNavigateToEvolution={() => setActiveTab('evolution')}
-        unreadTotal={unreadTotal}
-        onLogout={handleLogout}
+        connections={connections}
+        onLogout={() => setIsAuthenticated(false)}
+        activeTab={activeTab}
       />
 
-      {/* Main Workspace Body */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Left Navigation Sidebar */}
+      <div className="flex-1 flex overflow-hidden">
         <SidebarNav
           activeTab={activeTab}
-          onTabChange={setActiveTab}
-          unreadCount={unreadTotal}
-          pendingTicketsCount={pendingTicketsCount}
-          onNewChat={() => setShowNewChatModal(true)}
-          userRole={currentAttendant.role}
+          setActiveTab={setActiveTab}
+          pendingTicketsCount={tickets.filter((t) => t.status === 'pending').length}
         />
 
-        {/* View tab router */}
-        {activeTab === 'chats' && (
-          <main className="flex-1 flex overflow-hidden">
-            {/* List of active tickets */}
-            <ChatList
-              tickets={tickets}
-              departments={departments}
-              attendants={attendants}
-              queues={queues}
-              connections={connections}
-              currentAttendant={currentAttendant}
-              selectedTicketId={selectedTicketId}
-              onSelectTicket={handleSelectTicket}
-              onAcceptTicket={handleAcceptTicket}
-            />
-
-            {/* Main Active Chat Area */}
-            {activeTicket ? (
-              <ChatWindow
-                ticket={activeTicket}
-                messages={activeMessages}
+        <main className="flex-1 flex overflow-hidden relative">
+          {activeTab === 'chat' && (
+            <div className="flex-1 flex w-full h-full overflow-hidden">
+              <ChatList
+                tickets={tickets}
+                selectedTicketId={selectedTicketId}
+                onSelectTicket={(id) => {
+                  setSelectedTicketId(id);
+                  setTickets((prev) =>
+                    prev.map((t) => (t.id === id ? { ...t, unreadCount: 0 } : t))
+                  );
+                }}
+                queues={queues}
                 departments={departments}
                 attendants={attendants}
                 currentAttendant={currentAttendant}
-                quickResponses={quickResponses}
-                onSendMessage={handleSendMessage}
-                onOpenTransferModal={() => setShowTransferModal(true)}
-                onOpenCloseModal={() => setShowCloseModal(true)}
-                onToggleCustomerSidebar={() => setShowCustomerSidebar(!showCustomerSidebar)}
-                showCustomerSidebar={showCustomerSidebar}
-                onToggleWaitingStatus={handleToggleWaitingStatus}
+                filterTab={filterTab}
+                setFilterTab={setFilterTab}
+                selectedQueueId={selectedQueueId}
+                setSelectedQueueId={setSelectedQueueId}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
                 onAcceptTicket={handleAcceptTicket}
               />
-            ) : (
-              <div className="flex-1 bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center text-center p-8 space-y-3">
-                <div className="p-4 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded-full">
-                  <span className="text-2xl">💬</span>
+
+              {activeTicket ? (
+                <>
+                  <ChatWindow
+                    ticket={activeTicket}
+                    messages={activeMessages}
+                    onSendMessage={handleSendMessage}
+                    quickReplies={quickReplies}
+                    queues={queues}
+                    departments={departments}
+                    attendants={attendants}
+                    onOpenTransferModal={() => setIsTransferModalOpen(true)}
+                    onOpenCloseTicketModal={() => setIsCloseTicketModalOpen(true)}
+                  />
+                  <CustomerSidebar
+                    ticket={activeTicket}
+                    onUpdateContact={(updated) => {
+                      setContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+                      setTickets((prev) =>
+                        prev.map((t) => (t.contact.id === updated.id ? { ...t, contact: updated } : t))
+                      );
+                    }}
+                  />
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center bg-gray-950 p-8 text-center text-gray-500">
+                  <div className="w-16 h-16 rounded-3xl bg-gray-900 border border-gray-800 flex items-center justify-center text-emerald-400 mb-4 shadow-xl">
+                    💬
+                  </div>
+                  <h3 className="font-bold text-base text-gray-200 mb-1">Central de Atendimento WhatsApp</h3>
+                  <p className="text-xs max-w-sm text-gray-400 mb-4">
+                    Selecione um atendimento na lista à esquerda ou inicie um novo chat.
+                  </p>
+                  <button
+                    onClick={() => setIsNewChatModalOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-900/40 cursor-pointer"
+                  >
+                    + Novo Atendimento WhatsApp
+                  </button>
                 </div>
-                <h3 className="font-bold text-lg text-gray-800 dark:text-white">
-                  Nenhuma conversa selecionada
-                </h3>
-                <p className="text-xs text-gray-500 max-w-sm">
-                  Selecione um chamado da lista ao lado para iniciar o atendimento ou crie um novo chamado via WhatsApp.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            {/* Right Customer Detail Drawer */}
-            {activeTicket && activeTicket.status !== 'pending' && showCustomerSidebar && (
-              <CustomerSidebar
-                ticket={activeTicket}
-                allTickets={tickets}
-                departments={departments}
-                attendants={attendants}
-                scheduledMessages={scheduledMessages}
-                reminders={reminders}
-                onUpdatePriority={handleUpdatePriority}
-                onOpenTransferModal={() => setShowTransferModal(true)}
-                onOpenCloseModal={() => setShowCloseModal(true)}
-                onAddTag={handleAddTag}
-                onRemoveTag={handleRemoveTag}
-                onCloseSidebar={() => setShowCustomerSidebar(false)}
-                onUpdateContact={handleUpdateContact}
-                onAddScheduledMessage={handleAddScheduledMessage}
-                onCancelScheduledMessage={handleCancelScheduledMessage}
-                onAddReminder={handleAddReminder}
-                onToggleReminder={handleToggleReminder}
-                onSendMessage={handleSendMessage}
-              />
-            )}
-          </main>
-        )}
-
-        {activeTab === 'calendar' && (
-          <main className="flex-1 overflow-y-auto">
-            <CalendarManager
-              scheduledMessages={scheduledMessages}
-              connections={connections}
-              contacts={contacts}
-              quickResponses={quickResponses}
-              onAddScheduledMessage={handleAddScheduledMessage}
-              onCancelScheduledMessage={handleCancelScheduledMessage}
-              onExecuteScheduledMessage={(schedId) => {
-                setScheduledMessages((prev) =>
-                  prev.map((s) => (s.id === schedId ? { ...s, status: 'sent' } : s))
-                );
-              }}
-            />
-          </main>
-        )}
-
-        {activeTab === 'connections' && (
-          <main className="flex-1 overflow-y-auto">
+          {activeTab === 'connections' && (
             <ConnectionsManagement
               connections={connections}
+              departments={departments}
               queues={queues}
-              bots={bots}
-              onAddConnection={handleAddConnection}
-              onUpdateConnection={handleUpdateConnection}
-              onDeleteConnection={handleDeleteConnection}
-              onTestConnection={handleTestConnection}
+              onAddConnection={(c) => setConnections((prev) => [...prev, c])}
+              onUpdateConnection={(c) => setConnections((prev) => prev.map((item) => (item.id === c.id ? c : item)))}
+              onDeleteConnection={(id) => setConnections((prev) => prev.filter((item) => item.id !== id))}
             />
-          </main>
-        )}
+          )}
 
-        {activeTab === 'queues' && (
-          <main className="flex-1 overflow-y-auto">
-            <QueuesManagement
-              queues={queues}
-              attendants={attendants}
-              connections={connections}
-              onAddQueue={handleAddQueue}
-              onUpdateQueue={handleUpdateQueue}
-              onDeleteQueue={handleDeleteQueue}
-            />
-          </main>
-        )}
-
-        {activeTab === 'contacts' && (
-          <main className="flex-1 overflow-y-auto">
+          {activeTab === 'contacts' && (
             <ContactsManager
               contacts={contacts}
-              onStartChatWithContact={handleStartChatWithContact}
-              onOpenNewChatModal={() => setShowNewChatModal(true)}
-              onUpdateContact={handleUpdateContact}
+              onAddContact={(c) => setContacts((prev) => [...prev, c])}
+              onUpdateContact={(c) => setContacts((prev) => prev.map((item) => (item.id === c.id ? c : item)))}
+              onDeleteContact={(id) => setContacts((prev) => prev.filter((item) => item.id !== id))}
+              onStartChatWithContact={(c) => handleCreateNewChat(c.name, c.phone, queues[0]?.id || 'queue-1')}
             />
-          </main>
-        )}
+          )}
 
-        {activeTab === 'quick_replies' && (
-          <main className="flex-1 overflow-y-auto">
-            <QuickRepliesManager
-              quickResponses={quickResponses}
-              onAddQuickResponse={handleAddQuickResponse}
-              onDeleteQuickResponse={handleDeleteQuickResponse}
-            />
-          </main>
-        )}
-
-        {activeTab === 'analytics' && (
-          <main className="flex-1 overflow-y-auto">
-            <AnalyticsDashboard
-              tickets={tickets}
-              attendants={attendants}
-              departments={departments}
-              connections={connections}
-              queues={queues}
-              currentAttendant={currentAttendant}
-              onSelectTicket={handleSelectTicket}
-              onNavigateToChats={() => setActiveTab('chats')}
-            />
-          </main>
-        )}
-
-        {activeTab === 'reports' && (
-          <main className="flex-1 overflow-y-auto">
-            {currentAttendant.role === 'admin' ? (
-              <ReportsManager
-                tickets={tickets}
-                connections={connections}
-                queues={queues}
-                attendants={attendants}
-                departments={departments}
-                onSelectTicket={(tId) => {
-                  handleSelectTicket(tId);
-                  setActiveTab('chats');
-                }}
-              />
-            ) : (
-              <div className="p-8 text-center space-y-3">
-                <p className="font-bold text-red-500">Acesso Restrito</p>
-                <p className="text-xs text-gray-500">Apenas administradores podem visualizar o relatório de protocolos.</p>
-              </div>
-            )}
-          </main>
-        )}
-
-        {activeTab === 'evolution' && (
-          <main className="flex-1 overflow-y-auto">
-            <EvolutionSettings
-              config={evolutionConfig}
-              logs={webhookLogs}
-              onUpdateConfig={(newCfg) => setEvolutionConfig((prev) => ({ ...prev, ...newCfg }))}
-            />
-          </main>
-        )}
-
-        {activeTab === 'attendants' && (
-          <main className="flex-1 overflow-y-auto">
+          {activeTab === 'attendants' && (
             <AttendantsManagement
               attendants={attendants}
               departments={departments}
-              connections={connections}
-              queues={queues}
-              onAddAttendant={handleAddAttendant}
-              onUpdateAttendant={handleUpdateAttendant}
-              onDeleteAttendant={handleDeleteAttendant}
+              onAddAttendant={(a) => setAttendants((prev) => [...prev, a])}
+              onDeleteAttendant={(id) => setAttendants((prev) => prev.filter((item) => item.id !== id))}
             />
-          </main>
-        )}
+          )}
+
+          {activeTab === 'queues' && (
+            <QueuesManagement
+              queues={queues}
+              departments={departments}
+              onAddQueue={(q) => setQueues((prev) => [...prev, q])}
+              onDeleteQueue={(id) => setQueues((prev) => prev.filter((item) => item.id !== id))}
+            />
+          )}
+
+          {activeTab === 'quickReplies' && (
+            <QuickRepliesManager
+              quickReplies={quickReplies}
+              onAddQuickReply={(qr) => setQuickReplies((prev) => [...prev, qr])}
+              onDeleteQuickReply={(id) => setQuickReplies((prev) => prev.filter((item) => item.id !== id))}
+            />
+          )}
+
+          {activeTab === 'reports' && <ReportsManager tickets={tickets} />}
+          {activeTab === 'analytics' && <AnalyticsDashboard tickets={tickets} />}
+          {activeTab === 'evolution' && <EvolutionSettings />}
+          {activeTab === 'bot' && <VisualBotFlowBuilder />}
+          {activeTab === 'calendar' && <CalendarManager />}
+        </main>
       </div>
 
       {/* Modals */}
-      {showTransferModal && activeTicket && (
-        <TransferModal
-          ticket={activeTicket}
-          departments={departments}
-          attendants={attendants}
-          onConfirmTransfer={handleConfirmTransfer}
-          onClose={() => setShowTransferModal(false)}
-        />
-      )}
+      <TransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        queues={queues}
+        departments={departments}
+        attendants={attendants}
+        onTransfer={handleTransferTicket}
+      />
 
-      {showCloseModal && activeTicket && (
-        <CloseTicketModal
-          ticket={activeTicket}
-          onConfirmClose={handleConfirmClose}
-          onClose={() => setShowCloseModal(false)}
-        />
-      )}
+      <CloseTicketModal
+        isOpen={isCloseTicketModalOpen}
+        onClose={() => setIsCloseTicketModalOpen(false)}
+        onConfirmClose={handleCloseTicket}
+      />
 
-      {showNewChatModal && (
-        <NewChatModal
-          contacts={contacts}
-          departments={departments}
-          onCreateChat={handleCreateNewChat}
-          onClose={() => setShowNewChatModal(false)}
-        />
-      )}
+      <NewChatModal
+        isOpen={isNewChatModalOpen}
+        onClose={() => setIsNewChatModalOpen(false)}
+        queues={queues}
+        connections={connections}
+        onCreateChat={handleCreateNewChat}
+      />
     </div>
   );
 }

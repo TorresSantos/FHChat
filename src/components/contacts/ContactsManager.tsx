@@ -1,173 +1,218 @@
 import React, { useState } from 'react';
-import { Users, Search, Phone, Mail, Building, Plus, Tag, MessageSquare, ExternalLink, Download, Edit3, ShieldCheck } from 'lucide-react';
+import { Users, Search, Plus, Edit3, Trash2, Phone, Mail, Tag } from 'lucide-react';
 import { Contact } from '../../types';
-import { EditContactModal } from './EditContactModal';
 
 interface ContactsManagerProps {
   contacts: Contact[];
+  onAddContact: (contact: Contact) => void;
+  onUpdateContact: (contact: Contact) => void;
+  onDeleteContact: (id: string) => void;
   onStartChatWithContact: (contact: Contact) => void;
-  onOpenNewChatModal: () => void;
-  onUpdateContact?: (updated: Contact) => void;
 }
 
 export const ContactsManager: React.FC<ContactsManagerProps> = ({
   contacts,
-  onStartChatWithContact,
-  onOpenNewChatModal,
-  onUpdateContact
+  onAddContact,
+  onUpdateContact,
+  onDeleteContact,
+  onStartChatWithContact
 }) => {
   const [search, setSearch] = useState('');
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
 
-  const filteredContacts = contacts.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.includes(search) ||
-    (c.cpfCnpj && c.cpfCnpj.toLowerCase().includes(search.toLowerCase())) ||
-    (c.pushName && c.pushName.toLowerCase().includes(search.toLowerCase())) ||
-    (c.jid && c.jid.toLowerCase().includes(search.toLowerCase())) ||
-    (c.lid && c.lid.toLowerCase().includes(search.toLowerCase())) ||
-    (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
-    (c.company && c.company.toLowerCase().includes(search.toLowerCase()))
+  const filteredContacts = contacts.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.phone.toLowerCase().includes(search.toLowerCase()) ||
+      (c.email && c.email.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !phone) return;
+
+    const newContact: Contact = {
+      id: 'cont-' + Date.now(),
+      name,
+      phone,
+      email,
+      tags: ['Novo Contato', 'WhatsApp'],
+      createdAt: new Date().toISOString()
+    };
+
+    onAddContact(newContact);
+    setIsAddModalOpen(false);
+    setName('');
+    setPhone('');
+    setEmail('');
+  };
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 overflow-y-auto h-full text-gray-900 dark:text-white">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-4">
-        <div>
-          <h2 className="text-2xl font-extrabold flex items-center gap-2">
-            <Users className="w-7 h-7 text-emerald-600" /> Base de Contatos / CRM WhatsApp
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Lista completa de contatos sincronizados com suporte total a JID, LID Meta e PushName (nome de usuário do WhatsApp).
-          </p>
+    <div className="flex-1 overflow-y-auto bg-gray-950 p-4 md:p-8 text-gray-100">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-900 p-6 rounded-2xl border border-gray-800">
+          <div>
+            <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
+              <Users className="w-5 h-5 text-emerald-400" />
+              Gestão de Contatos &amp; Clientes
+            </h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Base de contatos sincronizada em tempo real com o WhatsApp.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/40 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Adicionar Contato
+          </button>
         </div>
 
-        <button
-          onClick={onOpenNewChatModal}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-900/30 flex items-center gap-1.5 shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Novo Contato / Conversa
-        </button>
-      </div>
+        {/* Search */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-3 text-gray-500" />
+          <input
+            type="text"
+            placeholder="Buscar por nome, telefone ou email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-emerald-500"
+          />
+        </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar por nome, telefone, JID, LID ou nome de usuário WhatsApp..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-        />
-      </div>
+        {/* Contacts Table/Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredContacts.map((c) => {
+            const avatarUrl = c.avatar;
+            const initials = c.name
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2);
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-gray-600 dark:text-gray-300">
-            <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-400 uppercase text-[10px] font-bold">
-              <tr>
-                <th className="p-3.5">Cliente & User WhatsApp</th>
-                <th className="p-3.5">Documento (CPF / CNPJ)</th>
-                <th className="p-3.5">Telefone & JID</th>
-                <th className="p-3.5">LID (Meta Privacy)</th>
-                <th className="p-3.5">Empresa / Etiquetas</th>
-                <th className="p-3.5 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredContacts.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
-                  <td className="p-3.5 font-bold text-gray-900 dark:text-white flex items-center space-x-3">
+            return (
+              <div
+                key={c.id}
+                className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-gray-700 transition-all space-y-3"
+              >
+                <div className="flex items-start gap-3">
+                  {avatarUrl ? (
                     <img
-                      src={c.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
+                      src={avatarUrl}
                       alt={c.name}
-                      className="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0"
+                      className="w-12 h-12 rounded-full object-cover border border-emerald-500/50 shrink-0"
                     />
-                    <div>
-                      <p className="font-bold">{c.name}</p>
-                      {c.pushName ? (
-                        <span className="text-[10px] text-purple-400 font-medium block">
-                          Original WA: <span className="text-gray-300 font-semibold">{c.pushName}</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-gray-400 font-normal block">{c.email || 'Sem e-mail'}</span>
-                      )}
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-700 to-teal-600 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow">
+                      {initials}
                     </div>
-                  </td>
+                  )}
 
-                  {/* CPF / CNPJ Column */}
-                  <td className="p-3.5">
-                    {c.cpfCnpj ? (
-                      <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                        {c.cpfCnpj}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 text-[11px] italic">Não informado</span>
-                    )}
-                  </td>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-sm text-gray-100 truncate">{c.name}</h3>
+                    <p className="text-xs text-emerald-400 font-mono font-medium">{c.phone}</p>
+                    {c.email && <p className="text-[11px] text-gray-400 truncate">{c.email}</p>}
+                  </div>
+                </div>
 
-                  <td className="p-3.5">
-                    <p className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{c.phone}</p>
-                    <p className="text-[10px] font-mono text-gray-400 truncate max-w-[170px]" title={c.jid || `${c.phone.replace(/\D/g, '')}@s.whatsapp.net`}>
-                      JID: {c.jid || `${c.phone.replace(/\D/g, '')}@s.whatsapp.net`}
-                    </p>
-                  </td>
-                  <td className="p-3.5">
-                    {c.lid ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20" title={c.lid}>
-                        {c.lid}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 text-[10px] italic">Não gerado</span>
-                    )}
-                  </td>
-                  <td className="p-3.5">
-                    <p className="text-gray-400 text-[11px] mb-1">{c.company || 'Pessoa Física'}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {c.tags.map((t) => (
-                        <span key={t} className="bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-200 dark:border-emerald-800">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-3.5 text-right space-x-2">
-                    <button
-                      onClick={() => setEditingContact(c)}
-                      className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-semibold text-xs inline-flex items-center gap-1 transition-colors"
-                      title="Editar dados do cliente"
-                    >
-                      <Edit3 className="w-3.5 h-3.5 text-blue-400" /> Editar
-                    </button>
-                    <button
-                      onClick={() => onStartChatWithContact(c)}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold text-xs inline-flex items-center gap-1 shadow-xs"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" /> Falar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                <div className="flex flex-wrap gap-1">
+                  {(c.tags || ['WhatsApp']).map((t, idx) => (
+                    <span key={idx} className="bg-gray-800 text-gray-300 text-[10px] px-2 py-0.5 rounded-md border border-gray-700">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
+                  <button
+                    onClick={() => onStartChatWithContact(c)}
+                    className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-medium py-1.5 rounded-xl border border-emerald-500/30 transition-all cursor-pointer"
+                  >
+                    Iniciar Chat
+                  </button>
+                  <button
+                    onClick={() => onDeleteContact(c.id)}
+                    className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-      {/* Edit Contact Modal */}
-      {editingContact && (
-        <EditContactModal
-          contact={editingContact}
-          onSave={(updated) => {
-            if (onUpdateContact) {
-              onUpdateContact(updated);
-            }
-            setEditingContact(null);
-          }}
-          onClose={() => setEditingContact(null)}
-        />
+
+      {/* Add Contact Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleAddSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-emerald-400" />
+              Novo Contato
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Carlos Mendes"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Telefone WhatsApp</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+5511999887766"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Email (Opcional)</label>
+                <input
+                  type="email"
+                  placeholder="carlos@empresa.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl transition-all border border-gray-700 cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-md shadow-emerald-900/40 cursor-pointer text-xs"
+              >
+                Salvar Contato
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

@@ -1,100 +1,72 @@
 import React, { useState } from 'react';
-import { CheckCircle, Star, X, MessageSquare } from 'lucide-react';
-import { Ticket } from '../../types';
+import { CheckCircle2, Star, X } from 'lucide-react';
 
 interface CloseTicketModalProps {
-  ticket: Ticket;
-  onConfirmClose: (ticketId: string, rating?: number, summary?: string) => void;
+  isOpen: boolean;
   onClose: () => void;
+  onConfirmClose: (reason?: string, sendSurvey?: boolean) => void;
 }
 
-export const CloseTicketModal: React.FC<CloseTicketModalProps> = ({
-  ticket,
-  onConfirmClose,
-  onClose
-}) => {
-  const [rating, setRating] = useState<number>(5);
-  const [summary, setSummary] = useState('');
+export const CloseTicketModal: React.FC<CloseTicketModalProps> = ({ isOpen, onClose, onConfirmClose }) => {
+  const [reason, setReason] = useState('');
+  const [sendSurvey, setSendSurvey] = useState(true);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirmClose(ticket.id, rating, summary);
+    onConfirmClose(reason, sendSurvey);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 rounded-xl">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">
-                Finalizar Atendimento
-              </h3>
-              <p className="text-xs text-gray-500">
-                Encerrar o chamado de {ticket.contact.name}.
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
+        <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+          <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-rose-400" />
+            Encerrar Atendimento
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* CSAT Rating Simulator */}
-          <div className="space-y-1 text-center">
-            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Avaliação de Satisfação Registrada (CSAT):
-            </label>
-            <div className="flex justify-center space-x-1 pt-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  type="button"
-                  key={star}
-                  onClick={() => setRating(star)}
-                  className={`p-1 rounded transition-transform hover:scale-125 ${
-                    star <= rating ? 'text-amber-400' : 'text-gray-300 dark:text-gray-700'
-                  }`}
-                >
-                  <Star className="w-6 h-6 fill-current" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Resolution Summary */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Resumo da Resolução do Atendimento:
-            </label>
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-gray-400 mb-1 font-medium">Motivo do Encerramento / Resumo</label>
             <textarea
               rows={3}
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder="Ex: Cliente atendeu às dúvidas sobre faturamento, boleto enviado e quitado via PIX..."
-              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 resize-none"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ex: Dúvida resolvida pelo suporte com envio de 2a via..."
+              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-rose-500"
             />
           </div>
 
-          {/* Action buttons */}
-          <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+          <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendSurvey}
+              onChange={(e) => setSendSurvey(e.target.checked)}
+              className="rounded bg-gray-950 border-gray-800 text-emerald-500 focus:ring-emerald-500"
+            />
+            <span>Enviar pesquisa de satisfação automática (NPS) no WhatsApp</span>
+          </label>
+
+          <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-semibold"
+              className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl transition-all border border-gray-700 cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-900/30"
+              className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-md shadow-rose-900/40 cursor-pointer"
             >
-              Confirmar Fechamento
+              Finalizar Atendimento
             </button>
           </div>
         </form>

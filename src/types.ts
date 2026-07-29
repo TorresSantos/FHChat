@@ -1,235 +1,102 @@
-export type Role = 'admin' | 'supervisor' | 'attendant';
-export type AttendantStatus = 'online' | 'busy' | 'away' | 'offline';
-
-export interface Attendant {
+export interface Contact {
   id: string;
   name: string;
-  email: string;
-  password?: string;
-  avatar: string;
-  role: Role;
+  phone: string;
+  email?: string;
+  avatar?: string;
+  tags?: string[];
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Ticket {
+  id: string;
+  protocol: string;
+  contactId: string;
+  contact: Contact;
   departmentId: string;
-  status: AttendantStatus;
-  activeTicketsCount: number;
-  phone?: string;
-  connectionIds?: string[];
-  queueIds?: string[];
+  queueId?: string;
+  attendantId?: string;
+  status: 'pending' | 'in_progress' | 'waiting' | 'resolved';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  connectionId?: string;
+  unreadCount?: number;
+  lastMessageSnippet?: string;
+  lastMessageTimestamp?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  ticketId: string;
+  sender: 'contact' | 'attendant' | 'system' | 'bot';
+  senderName?: string;
+  type: 'text' | 'image' | 'audio' | 'document' | 'video' | 'quick_reply';
+  content: string;
+  mediaUrl?: string;
+  timestamp: string;
+  status?: 'sent' | 'delivered' | 'read';
+  isInternalNote?: boolean;
 }
 
 export interface Department {
   id: string;
   name: string;
-  description: string;
   color: string;
-  iconName: string;
-}
-
-export type TicketStatus = 'pending' | 'in_progress' | 'waiting' | 'resolved' | 'transferred';
-export type Priority = 'low' | 'medium' | 'high' | 'urgent';
-
-export interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  cpfCnpj?: string;     // CPF ou CNPJ do cliente
-  jid?: string;         // WhatsApp JID (ex: 5511988881234@s.whatsapp.net)
-  lid?: string;         // WhatsApp LID (ex: 1234567890123456@lid - Novo ID de Privacidade Meta)
-  pushName?: string;    // Nome de usuário no WhatsApp (PushName original)
-  email?: string;
-  avatar?: string;
-  tags: string[];
-  notes?: string;
-  createdAt: string;
-  lastContactedAt: string;
-  customFields?: Record<string, string>;
-  company?: string;
+  description?: string;
 }
 
 export interface Queue {
   id: string;
   name: string;
-  description: string;
+  departmentId: string;
   color: string;
-  optionNumber: number;
-  greetingMessage: string;
-  attendantIds: string[];
-  isDefault?: boolean;
-  isActive: boolean;
-  // Operating Hours & Automatic Messages
-  schedulesType?: '24h' | 'custom';
-  morningStart?: string;      // ex: "08:00"
-  morningEnd?: string;        // ex: "12:00" (Início do almoço)
-  afternoonStart?: string;    // ex: "13:30" (Fim do almoço)
-  afternoonEnd?: string;      // ex: "18:00" (Fim do expediente)
-  outOfHoursMessage?: string; // Mensagem para envio fora do expediente
-  lunchBreakMessage?: string; // Mensagem para envio durante o almoço
-  maxOutOfHoursNotifs?: number; // Limite de vezes que o aviso é enviado (ex: 1)
+  description?: string;
+  botGreeting?: string;
+}
+
+export interface Attendant {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'supervisor' | 'agent';
+  departmentIds: string[];
+  avatar?: string;
+  status: 'online' | 'busy' | 'offline';
+  maxConcurrentChats?: number;
 }
 
 export interface WhatsAppConnection {
   id: string;
   name: string;
   phone: string;
-  provider?: 'evolution' | 'baileys'; // WhatsApp Engine API provider
-  apiUrl: string;
-  apiKey: string;
-  instanceName: string;
-  webhookUrl: string;
-  // Baileys specific fields (WhiskeySockets/Baileys)
+  status: 'connected' | 'disconnected' | 'qrcode' | 'connecting';
+  provider: 'baileys' | 'evolution';
   baileysSessionId?: string;
-  usePairingCode?: boolean;
-  pairingCode?: string;
-  baileysVersion?: string;
-  browserName?: string;
-  status: 'connected' | 'connecting' | 'disconnected' | 'refused';
+  instanceName?: string;
   qrCodeUrl?: string;
+  pairingCode?: string;
+  usePairingCode?: boolean;
+  departmentIds: string[];
   queueIds: string[];
   isDefault?: boolean;
-  botEnabled: boolean;
-  botId?: string;
-  botGreetingMessage: string;
-  completionMessage?: string; // Mensagem automática de finalização de atendimento
-  transferKeyword?: string;
-  outOfHoursMessage?: string;
-  lastSyncTime?: string;
+  botActive?: boolean;
   updatedAt: string;
 }
 
-export interface Ticket {
+export interface QuickReply {
   id: string;
-  contactId: string;
-  contact: Contact;
-  assignedAttendantId?: string;
-  departmentId: string;
-  connectionId?: string;
-  queueId?: string;
-  status: TicketStatus;
-  priority: Priority;
-  tags: string[];
-  unreadCount: number;
-  createdAt: string;
-  updatedAt: string;
-  closedAt?: string;
-  protocol?: string;
-  rating?: number;
-  lastMessageSnippet?: string;
-  lastMessageTimestamp?: string;
-}
-
-export type MessageType = 'text' | 'image' | 'audio' | 'document' | 'location' | 'system' | 'note';
-export type MessageSender = 'contact' | 'attendant' | 'bot' | 'system';
-
-export interface Message {
-  id: string;
-  ticketId: string;
-  sender: MessageSender;
-  senderName?: string;
-  type: MessageType;
-  content: string;
-  mediaUrl?: string;
-  mediaType?: string;
-  fileName?: string;
-  fileSize?: string;
-  audioDuration?: string;
-  timestamp: string;
-  status?: 'sent' | 'delivered' | 'read' | 'failed';
-  isInternalNote?: boolean;
-}
-
-export interface QuickResponse {
-  id: string;
-  shortcut: string; // e.g. "/boas-vindas"
+  shortcut: string;
   title: string;
   content: string;
-  category: string;
-}
-
-export interface EvolutionConfig {
-  apiUrl: string;
-  apiKey: string;
-  instanceName: string;
-  webhookUrl: string;
-  autoReplyWithAI: boolean;
-  isConnected: boolean;
-  instanceStatus: 'open' | 'connecting' | 'close' | 'refused';
-  qrCodeUrl?: string;
-  phoneConnected?: string;
-  lastSyncTime?: string;
-  version?: string;
+  category?: string;
 }
 
 export interface WebhookLog {
   id: string;
   event: string;
   timestamp: string;
-  status: 'success' | 'error';
+  status: 'success' | 'failed';
   payloadSnippet: string;
 }
-
-export type FlowNodeType =
-  | 'start'
-  | 'message'
-  | 'menu'
-  | 'transfer_queue'
-  | 'ai_gemini'
-  | 'condition_time'
-  | 'media';
-
-export interface FlowNodeOption {
-  id: string;
-  key: string;
-  label: string;
-  targetNodeId?: string;
-  targetQueueId?: string;
-}
-
-export interface FlowNode {
-  id: string;
-  type: FlowNodeType;
-  title: string;
-  position: { x: number; y: number };
-  content?: string;
-  connectionIds?: string[];
-  targetQueueId?: string;
-  options?: FlowNodeOption[];
-  aiPrompt?: string;
-  nextNodeId?: string;
-}
-
-export interface BotFlow {
-  id: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-  connectionIds: string[];
-  nodes: FlowNode[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ScheduledMessage {
-  id: string;
-  ticketId?: string;
-  contactId?: string;
-  contactName: string;
-  contactPhone: string;
-  connectionId: string;
-  connectionName?: string;
-  connectionProvider?: 'evolution' | 'baileys';
-  content: string;
-  scheduledAt: string;
-  status: 'pending' | 'sent' | 'cancelled';
-  frequency?: 'once' | 'daily' | 'weekly' | 'monthly';
-  createdAt: string;
-}
-
-export interface TicketReminder {
-  id: string;
-  ticketId: string;
-  title: string;
-  remindAt: string;
-  isCompleted: boolean;
-  createdAt: string;
-}
-
-

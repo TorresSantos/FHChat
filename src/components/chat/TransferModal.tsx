@@ -1,132 +1,91 @@
 import React, { useState } from 'react';
-import { ArrowRightLeft, X, Users, Headphones, Building } from 'lucide-react';
-import { Ticket, Department, Attendant } from '../../types';
+import { ArrowRightLeft, Users, Layers, X } from 'lucide-react';
+import { Queue, Department, Attendant } from '../../types';
 
 interface TransferModalProps {
-  ticket: Ticket;
+  isOpen: boolean;
+  onClose: () => void;
+  queues: Queue[];
   departments: Department[];
   attendants: Attendant[];
-  onConfirmTransfer: (ticketId: string, departmentId: string, attendantId?: string, note?: string) => void;
-  onClose: () => void;
+  onTransfer: (queueId?: string, attendantId?: string) => void;
 }
 
 export const TransferModal: React.FC<TransferModalProps> = ({
-  ticket,
-  departments,
+  isOpen,
+  onClose,
+  queues,
   attendants,
-  onConfirmTransfer,
-  onClose
+  onTransfer
 }) => {
-  const [selectedDeptId, setSelectedDeptId] = useState(ticket.departmentId);
-  const [selectedAttendantId, setSelectedAttendantId] = useState<string>('');
-  const [transferNote, setTransferNote] = useState('');
+  const [selectedQueueId, setSelectedQueueId] = useState('');
+  const [selectedAttendantId, setSelectedAttendantId] = useState('');
 
-  // Filter attendants belonging to selected department or all
-  const filteredAttendants = attendants.filter((a) =>
-    selectedDeptId ? a.departmentId === selectedDeptId : true
-  );
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirmTransfer(
-      ticket.id,
-      selectedDeptId,
-      selectedAttendantId || undefined,
-      transferNote
-    );
+    onTransfer(selectedQueueId || undefined, selectedAttendantId || undefined);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-xl">
-              <ArrowRightLeft className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">
-                Transferir Atendimento
-              </h3>
-              <p className="text-xs text-gray-500">
-                Encaminhe o chamado de {ticket.contact.name} para outra fila ou colega.
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
+        <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+          <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
+            <ArrowRightLeft className="w-5 h-5 text-blue-400" />
+            Transferir Atendimento
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Select Department */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Setor / Departamento de Destino:
-            </label>
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-gray-400 mb-1 font-medium">Transferir para Fila / Setor</label>
             <select
-              value={selectedDeptId}
-              onChange={(e) => {
-                setSelectedDeptId(e.target.value);
-                setSelectedAttendantId('');
-              }}
-              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              value={selectedQueueId}
+              onChange={(e) => setSelectedQueueId(e.target.value)}
+              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-blue-500"
             >
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} - ({d.description})
+              <option value="">Manter Fila Atual</option>
+              {queues.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.name}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Select Specific Attendant (Optional) */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Atendente Específico (Opcional - Deixe em branco para fila geral):
-            </label>
+          <div>
+            <label className="block text-gray-400 mb-1 font-medium">Transferir para Atendente Específico</label>
             <select
               value={selectedAttendantId}
               onChange={(e) => setSelectedAttendantId(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-blue-500"
             >
-              <option value="">-- Qualquer Atendente Disponível da Fila --</option>
-              {filteredAttendants.map((a) => (
+              <option value="">Nenhum (Devolver para a Fila)</option>
+              {attendants.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} ({a.status}) - {a.activeTicketsCount} chamados ativos
+                  {a.name} ({a.role})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Transfer Note */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              Nota do Motivo da Transferência (Interna):
-            </label>
-            <textarea
-              rows={2}
-              value={transferNote}
-              onChange={(e) => setTransferNote(e.target.value)}
-              placeholder="Ex: Cliente solicita orçamento corporativo com desconto especial..."
-              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-2.5 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 resize-none"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-semibold"
+              className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl transition-all border border-gray-700 cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-900/30"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-md shadow-blue-900/40 cursor-pointer"
             >
               Confirmar Transferência
             </button>
