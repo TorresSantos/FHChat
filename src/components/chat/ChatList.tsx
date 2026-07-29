@@ -2,6 +2,8 @@ import React from 'react';
 import { Search, Filter, MessageSquare, Check, UserPlus, Clock, Sparkles } from 'lucide-react';
 import { Ticket, Queue, Department, Attendant } from '../../types';
 
+export type FilterTabType = 'mine' | 'pending' | 'waiting' | 'closed';
+
 interface ChatListProps {
   tickets: Ticket[];
   selectedTicketId: string | null;
@@ -10,13 +12,14 @@ interface ChatListProps {
   departments: Department[];
   attendants: Attendant[];
   currentAttendant: Attendant;
-  filterTab: 'all' | 'mine' | 'pending';
-  setFilterTab: (tab: 'all' | 'mine' | 'pending') => void;
+  filterTab: FilterTabType;
+  setFilterTab: (tab: FilterTabType) => void;
   selectedQueueId: string;
   setSelectedQueueId: (qId: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onAcceptTicket?: (ticketId: string) => void;
+  onReopenTicket?: (ticketId: string) => void;
 }
 
 export const ChatList: React.FC<ChatListProps> = ({
@@ -33,7 +36,8 @@ export const ChatList: React.FC<ChatListProps> = ({
   setSelectedQueueId,
   searchQuery,
   setSearchQuery,
-  onAcceptTicket
+  onAcceptTicket,
+  onReopenTicket
 }) => {
   const filteredTickets = tickets.filter((ticket) => {
     // Search query
@@ -51,10 +55,14 @@ export const ChatList: React.FC<ChatListProps> = ({
     }
 
     // Tab filter
-    if (filterTab === 'mine') {
-      return ticket.attendantId === currentAttendant.id;
+    if (filterTab === 'closed') {
+      return ticket.status === 'resolved';
+    } else if (filterTab === 'waiting') {
+      return ticket.status === 'waiting';
     } else if (filterTab === 'pending') {
-      return ticket.status === 'pending' || !ticket.attendantId;
+      return (ticket.status === 'pending' || !ticket.attendantId) && ticket.status !== 'resolved';
+    } else if (filterTab === 'mine') {
+      return ticket.attendantId === currentAttendant.id && ticket.status !== 'resolved' && ticket.status !== 'waiting';
     }
 
     return true;
@@ -76,30 +84,38 @@ export const ChatList: React.FC<ChatListProps> = ({
         </div>
 
         {/* Tab Filters */}
-        <div className="flex bg-gray-950 p-1 rounded-xl border border-gray-800">
-          <button
-            onClick={() => setFilterTab('all')}
-            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
-              filterTab === 'all' ? 'bg-gray-800 text-emerald-400 shadow' : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            Todos
-          </button>
+        <div className="flex bg-gray-950 p-1 rounded-xl border border-gray-800 text-[11px] font-semibold overflow-x-auto">
           <button
             onClick={() => setFilterTab('mine')}
-            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${
               filterTab === 'mine' ? 'bg-gray-800 text-emerald-400 shadow' : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            Meus
+            Meus ({tickets.filter((t) => t.attendantId === currentAttendant.id && t.status !== 'resolved' && t.status !== 'waiting').length})
           </button>
           <button
             onClick={() => setFilterTab('pending')}
-            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${
               filterTab === 'pending' ? 'bg-gray-800 text-amber-400 shadow' : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            Fila ({tickets.filter((t) => t.status === 'pending').length})
+            Fila ({tickets.filter((t) => (t.status === 'pending' || !t.attendantId) && t.status !== 'resolved').length})
+          </button>
+          <button
+            onClick={() => setFilterTab('waiting')}
+            className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${
+              filterTab === 'waiting' ? 'bg-gray-800 text-blue-400 shadow' : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Espera ({tickets.filter((t) => t.status === 'waiting').length})
+          </button>
+          <button
+            onClick={() => setFilterTab('closed')}
+            className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${
+              filterTab === 'closed' ? 'bg-gray-800 text-rose-400 shadow' : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Fechados ({tickets.filter((t) => t.status === 'resolved').length})
           </button>
         </div>
 
@@ -184,8 +200,26 @@ export const ChatList: React.FC<ChatListProps> = ({
                       {queue ? queue.name : 'Fila Geral'}
                     </span>
 
-                    {/* Unread badge or Accept button */}
-                    {isPending && onAcceptTicket ? (
+                    {/* Resolved status or Unread badge or Accept button */}
+                    {ticket.status === 'resolved' ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-md">
+                          Encerrado
+                        </span>
+                        {onReopenTicket && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onReopenTicket(ticket.id);
+                            }}
+                            className="bg-gray-800 hover:bg-gray-700 text-gray-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-all border border-gray-700 cursor-pointer"
+                            title="Reabrir este atendimento"
+                          >
+                            Reabrir
+                          </button>
+                        )}
+                      </div>
+                    ) : isPending && onAcceptTicket ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

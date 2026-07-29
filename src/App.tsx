@@ -22,7 +22,7 @@ import {
 
 import { Header } from './components/Header';
 import { SidebarNav } from './components/SidebarNav';
-import { ChatList } from './components/chat/ChatList';
+import { ChatList, FilterTabType } from './components/chat/ChatList';
 import { ChatWindow } from './components/chat/ChatWindow';
 import { CustomerSidebar } from './components/chat/CustomerSidebar';
 import { ConnectionsManagement } from './components/connections/ConnectionsManagement';
@@ -59,7 +59,7 @@ export default function App() {
 
   // Selected Chat & Filters
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  const [filterTab, setFilterTab] = useState<'all' | 'mine' | 'pending'>('all');
+  const [filterTab, setFilterTab] = useState<FilterTabType>('mine');
   const [selectedQueueId, setSelectedQueueId] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -168,6 +168,7 @@ export default function App() {
                   t.id === existingTicket.id
                     ? {
                         ...t,
+                        status: t.status === 'waiting' ? 'in_progress' : t.status,
                         contact: {
                           ...t.contact,
                           avatar: msg.avatarUrl || t.contact.avatar
@@ -253,34 +254,64 @@ export default function App() {
   const activeMessages = selectedTicketId ? messages[selectedTicketId] || [] : [];
 
   // Send Message Handler
-  const handleSendMessage = async (text: string, isNote: boolean = false) => {
+  const handleSendMessage = async (
+    text: string,
+    isNote: boolean = false,
+    attachments?: { name: string; url: string; type: string }[]
+  ) => {
     if (!selectedTicketId || !activeTicket) return;
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const newMsg: Message = {
-      id: 'msg-out-' + Date.now(),
-      ticketId: selectedTicketId,
-      sender: isNote ? 'system' : 'attendant',
-      senderName: currentAttendant.name,
-      type: 'text',
-      content: text,
-      timestamp: timeStr,
-      status: 'sent',
-      isInternalNote: isNote
-    };
+    let createdMsgs: Message[] = [];
+
+    if (attachments && attachments.length > 0) {
+      attachments.forEach((att, idx) => {
+        createdMsgs.push({
+          id: `msg-out-att-${Date.now()}-${idx}`,
+          ticketId: selectedTicketId,
+          sender: isNote ? 'system' : 'attendant',
+          senderName: currentAttendant.name,
+          type: (att.type as any) || 'document',
+          content: att.type === 'audio' ? '🎤 Mensagem de Áudio' : att.name,
+          mediaUrl: att.url,
+          timestamp: timeStr,
+          status: 'sent',
+          isInternalNote: isNote
+        });
+      });
+    }
+
+    if (text.trim()) {
+      createdMsgs.push({
+        id: 'msg-out-' + Date.now(),
+        ticketId: selectedTicketId,
+        sender: isNote ? 'system' : 'attendant',
+        senderName: currentAttendant.name,
+        type: 'text',
+        content: text,
+        timestamp: timeStr,
+        status: 'sent',
+        isInternalNote: isNote
+      });
+    }
+
+    if (createdMsgs.length === 0) return;
 
     setMessages((prev) => ({
       ...prev,
-      [selectedTicketId]: [...(prev[selectedTicketId] || []), newMsg]
+      [selectedTicketId]: [...(prev[selectedTicketId] || []), ...createdMsgs]
     }));
+
+    const lastSnippet = text.trim() || attachments?.[0]?.name || 'Anexo enviado';
 
     setTickets((prev) =>
       prev.map((t) =>
         t.id === selectedTicketId
           ? {
               ...t,
-              lastMessageSnippet: isNote ? `[Nota]: ${text}` : text,
+              status: t.status === 'waiting' ? 'in_progress' : t.status,
+              lastMessageSnippet: isNote ? `[Nota]: ${lastSnippet}` : lastSnippet,
               lastMessageTimestamp: timeStr,
               updatedAt: new Date().toISOString()
             }
@@ -300,7 +331,7 @@ export default function App() {
           body: JSON.stringify({
             sessionId,
             number: activeTicket.contact.phone,
-            text
+            text: text.trim() || attachments?.[0]?.name || 'Anexo'
           })
         });
       } catch (e) {
@@ -319,6 +350,42 @@ export default function App() {
       )
     );
     setSelectedTicketId(ticketId);
+    setFilterTab('mine');
+  };
+
+  const handlePutOnHold = (ticketId?: string) => {
+    const targetId = ticketId || selectedTicketId;
+    if (!targetId) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === targetId
+          ? { ...t, status: 'waiting', updatedAt: new Date().toISOString() }
+          : t
+      )
+    );
+
+    setMessages((prev) => ({
+      ...prev,
+      [targetId]: [
+        ...(prev[targetId] || []),
+        {
+          id: 'msg-waiting-' + Date.now(),
+          ticketId: targetId,
+          sender: 'system',
+          senderName: 'Sistema',
+          type: 'text',
+          content: `Atendimento colocado em espera por ${currentAttendant.name}. Aguardando resposta do cliente.`,
+          timestamp: timeStr,
+          status: 'delivered',
+          isInternalNote: true
+        }
+      ]
+    }));
+
+    setFilterTab('waiting');
   };
 
   const handleTransferTicket = (queueId?: string, attendantId?: string) => {
@@ -338,16 +405,74 @@ export default function App() {
     );
   };
 
-  const handleCloseTicket = (reason?: string) => {
+  const handleCloseTicket = (reason?: string, sendSurvey?: boolean) => {
     if (!selectedTicketId) return;
+    const targetId = selectedTicketId;
+    const currentTicket = tickets.find((t) => t.id === targetId);
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Append internal note with closing reason
+    if (reason) {
+      setMessages((prev) => ({
+        ...prev,
+        [targetId]: [
+          ...(prev[targetId] || []),
+          {
+            id: 'msg-close-' + Date.now(),
+            ticketId: targetId,
+            sender: 'system',
+            senderName: 'Sistema',
+            type: 'text',
+            content: `Atendimento encerrado por ${currentAttendant.name}. Resumo: ${reason}`,
+            timestamp: timeStr,
+            status: 'delivered',
+            isInternalNote: true
+          }
+        ]
+      }));
+    }
+
+    // Optional NPS survey via Baileys WhatsApp
+    if (sendSurvey && currentTicket) {
+      const activeConn = connections.find((c) => c.provider === 'baileys') || connections[0];
+      const sessionId = activeConn?.baileysSessionId || activeConn?.instanceName || 'default_baileys';
+      fetch('/api/baileys/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          number: currentTicket.contact.phone,
+          text: '⭐ *Atendimento Encerrado - Pesquisa de Satisfação*\nComo avalia nosso suporte de 1 a 5?\nResponda com uma nota.'
+        })
+      }).catch((e) => console.error('[Baileys Survey Error]', e));
+    }
+
+    // Set ticket status to resolved
     setTickets((prev) =>
       prev.map((t) =>
-        t.id === selectedTicketId
+        t.id === targetId
           ? { ...t, status: 'resolved', updatedAt: new Date().toISOString() }
           : t
       )
     );
-    setSelectedTicketId(null);
+
+    // Automatically switch filter tab to 'closed' so the closed ticket is listed in "Fechados"
+    setFilterTab('closed');
+  };
+
+  const handleReopenTicket = (ticketId?: string) => {
+    const targetId = ticketId || selectedTicketId;
+    if (!targetId) return;
+
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === targetId
+          ? { ...t, status: 'in_progress', attendantId: currentAttendant.id, updatedAt: new Date().toISOString() }
+          : t
+      )
+    );
+    setSelectedTicketId(targetId);
+    setFilterTab('mine');
   };
 
   const handleCreateNewChat = (name: string, phone: string, queueId: string) => {
@@ -433,6 +558,7 @@ export default function App() {
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 onAcceptTicket={handleAcceptTicket}
+                onReopenTicket={handleReopenTicket}
               />
 
               {activeTicket ? (
@@ -447,6 +573,9 @@ export default function App() {
                     attendants={attendants}
                     onOpenTransferModal={() => setIsTransferModalOpen(true)}
                     onOpenCloseTicketModal={() => setIsCloseTicketModalOpen(true)}
+                    onReopenTicket={() => handleReopenTicket(activeTicket.id)}
+                    onAcceptTicket={handleAcceptTicket}
+                    onPutOnHold={handlePutOnHold}
                   />
                   <CustomerSidebar
                     ticket={activeTicket}
