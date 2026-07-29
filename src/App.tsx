@@ -664,8 +664,23 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'reports' && <ReportsManager tickets={tickets} />}
-          {activeTab === 'analytics' && <AnalyticsDashboard tickets={tickets} />}
+          {activeTab === 'reports' && (
+            <ReportsManager
+              tickets={tickets}
+              queues={queues}
+              attendants={attendants}
+              connections={connections}
+              departments={departments}
+            />
+          )}
+          {activeTab === 'analytics' && (
+            <AnalyticsDashboard
+              tickets={tickets}
+              attendants={attendants}
+              queues={queues}
+              connections={connections}
+            />
+          )}
           {activeTab === 'evolution' && <EvolutionSettings />}
           {activeTab === 'bot' && <VisualBotFlowBuilder />}
           {activeTab === 'calendar' && <CalendarManager />}
