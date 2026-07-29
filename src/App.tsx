@@ -827,7 +827,7 @@ export default function App() {
           )}
           {activeTab === 'evolution' && <EvolutionSettings />}
           {activeTab === 'bot' && <VisualBotFlowBuilder />}
-          {activeTab === 'calendar' && <CalendarManager />}
+          {activeTab === 'calendar' && <CalendarManager contacts={contacts} attendants={attendants} />}
         </main>
       </div>
 

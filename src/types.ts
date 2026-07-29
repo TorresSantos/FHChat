@@ -132,6 +132,21 @@ export interface AuthorizationRequest {
   createdAt: string;
 }
 
+export interface ScheduleItem {
+  id: string;
+  title: string;
+  contactName: string;
+  contactPhone: string;
+  attendantId?: string;
+  attendantName?: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  notes?: string;
+  sendWhatsAppReminder?: boolean;
+  createdAt: string;
+}
+
 export interface QuickReply {
   id: string;
   shortcut: string;
