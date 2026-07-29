@@ -37,8 +37,28 @@ export const initialConnections: WhatsAppConnection[] = [
 ];
 
 export const initialContacts: Contact[] = [
-  { id: 'cont-1', name: 'Marcos Oliveira', phone: '+5511998822331', email: 'marcos@empresa.com.br', tags: ['VIP', 'Cliente'], createdAt: new Date().toISOString() },
-  { id: 'cont-2', name: 'Fernanda Lima', phone: '+5521988771122', email: 'fernanda@design.com', tags: ['Novo Contacto'], createdAt: new Date().toISOString() }
+  {
+    id: 'cont-1',
+    name: 'Marcos Oliveira',
+    pushName: 'Marcos WhatsApp Business',
+    phone: '+5511998822331',
+    email: 'marcos@empresa.com.br',
+    jid: '5511998822331@s.whatsapp.net',
+    lid: '109823471823901@lid',
+    tags: ['VIP', 'Cliente'],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'cont-2',
+    name: 'Fernanda Lima',
+    pushName: 'Fer Lima Design',
+    phone: '+5521988771122',
+    email: 'fernanda@design.com',
+    jid: '5521988771122@s.whatsapp.net',
+    lid: '284719283748291@lid',
+    tags: ['Novo Contato'],
+    createdAt: new Date().toISOString()
+  }
 ];
 
 export const initialTickets: Ticket[] = [];

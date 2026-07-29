@@ -39,6 +39,9 @@ export const ChatList: React.FC<ChatListProps> = ({
   onAcceptTicket,
   onReopenTicket
 }) => {
+  const waitingCount = tickets.filter((t) => t.status === 'waiting' && t.attendantId === currentAttendant.id).length;
+  const showWaitingTab = waitingCount > 0;
+
   const filteredTickets = tickets.filter((ticket) => {
     // Search query
     if (searchQuery) {
@@ -58,7 +61,7 @@ export const ChatList: React.FC<ChatListProps> = ({
     if (filterTab === 'closed') {
       return ticket.status === 'resolved';
     } else if (filterTab === 'waiting') {
-      return ticket.status === 'waiting';
+      return ticket.status === 'waiting' && ticket.attendantId === currentAttendant.id;
     } else if (filterTab === 'pending') {
       return (ticket.status === 'pending' || !ticket.attendantId) && ticket.status !== 'resolved';
     } else if (filterTab === 'mine') {
@@ -101,14 +104,16 @@ export const ChatList: React.FC<ChatListProps> = ({
           >
             Fila ({tickets.filter((t) => (t.status === 'pending' || !t.attendantId) && t.status !== 'resolved').length})
           </button>
-          <button
-            onClick={() => setFilterTab('waiting')}
-            className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${
-              filterTab === 'waiting' ? 'bg-gray-800 text-blue-400 shadow' : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            Espera ({tickets.filter((t) => t.status === 'waiting').length})
-          </button>
+          {showWaitingTab && (
+            <button
+              onClick={() => setFilterTab('waiting')}
+              className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${
+                filterTab === 'waiting' ? 'bg-gray-800 text-blue-400 shadow' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Espera ({waitingCount})
+            </button>
+          )}
           <button
             onClick={() => setFilterTab('closed')}
             className={`flex-1 py-1.5 px-1 rounded-lg transition-all whitespace-nowrap ${

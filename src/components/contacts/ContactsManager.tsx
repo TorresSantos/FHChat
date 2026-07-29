@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Search, Plus, Edit3, Trash2, Phone, Mail, Tag } from 'lucide-react';
+import { Users, Search, Plus, Edit3, Trash2, Phone, Mail, Tag, MessageSquare, X, Shield, FileText } from 'lucide-react';
 import { Contact } from '../../types';
 
 interface ContactsManagerProps {
@@ -18,27 +18,43 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
   onStartChatWithContact
 }) => {
   const [search, setSearch] = useState('');
+
+  // Add Contact State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
+  // Edit Contact State
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editTags, setEditTags] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
   const filteredContacts = contacts.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email && c.email.toLowerCase().includes(search.toLowerCase()))
+      (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
+      (c.pushName && c.pushName.toLowerCase().includes(search.toLowerCase()))
   );
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone) return;
 
+    const rawPhoneDigits = phone.replace(/\D/g, '');
     const newContact: Contact = {
       id: 'cont-' + Date.now(),
       name,
+      pushName: name + ' (WhatsApp)',
       phone,
       email,
+      jid: rawPhoneDigits ? `${rawPhoneDigits}@s.whatsapp.net` : `${Date.now()}@s.whatsapp.net`,
+      lid: `${Math.floor(Math.random() * 900000000000) + 100000000000}@lid`,
       tags: ['Novo Contato', 'WhatsApp'],
       createdAt: new Date().toISOString()
     };
@@ -50,43 +66,76 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
     setEmail('');
   };
 
+  const handleOpenEdit = (contact: Contact) => {
+    setEditingContact(contact);
+    setEditName(contact.name);
+    setEditPhone(contact.phone);
+    setEditEmail(contact.email || '');
+    setEditTags((contact.tags || []).join(', '));
+    setEditNotes(contact.notes || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContact || !editName || !editPhone) return;
+
+    const updatedTags = editTags
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+    const updated: Contact = {
+      ...editingContact,
+      name: editName,
+      phone: editPhone,
+      email: editEmail,
+      tags: updatedTags,
+      notes: editNotes
+    };
+
+    onUpdateContact(updated);
+    setIsEditModalOpen(false);
+    setEditingContact(null);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-gray-950 p-4 md:p-8 text-gray-100">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-900 p-6 rounded-2xl border border-gray-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
           <div>
             <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
               <Users className="w-5 h-5 text-emerald-400" />
               Gestão de Contatos &amp; Clientes
             </h2>
             <p className="text-xs text-gray-400 mt-1">
-              Base de contatos sincronizada em tempo real com o WhatsApp.
+              Base de contatos sincronizada em tempo real com o WhatsApp. Edite nomes, etiquetas, telefones e e-mails.
             </p>
           </div>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/40 cursor-pointer"
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/40 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Adicionar Contato
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search Bar */}
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3.5 top-3 text-gray-500" />
           <input
             type="text"
-            placeholder="Buscar por nome, telefone ou email..."
+            placeholder="Buscar por nome, nome do WhatsApp, telefone ou email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-200 focus:outline-none focus:border-emerald-500"
           />
         </div>
 
-        {/* Contacts Table/Grid */}
+        {/* Contacts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredContacts.map((c) => {
             const avatarUrl = c.avatar;
@@ -97,49 +146,81 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
               .toUpperCase()
               .slice(0, 2);
 
+            const defaultJid = c.jid || `${c.phone.replace(/\D/g, '')}@s.whatsapp.net`;
+            const defaultLid = c.lid || '1029384756123@lid';
+
             return (
               <div
                 key={c.id}
-                className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-gray-700 transition-all space-y-3"
+                className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-gray-700 transition-all space-y-3 shadow-lg"
               >
-                <div className="flex items-start gap-3">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={c.name}
-                      className="w-12 h-12 rounded-full object-cover border border-emerald-500/50 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-700 to-teal-600 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow">
-                      {initials}
-                    </div>
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={c.name}
+                        className="w-12 h-12 rounded-full object-cover border border-emerald-500/50 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-700 to-teal-600 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow">
+                        {initials}
+                      </div>
+                    )}
 
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-sm text-gray-100 truncate">{c.name}</h3>
-                    <p className="text-xs text-emerald-400 font-mono font-medium">{c.phone}</p>
-                    {c.email && <p className="text-[11px] text-gray-400 truncate">{c.email}</p>}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-sm text-gray-100 truncate">{c.name}</h3>
+                      <p className="text-[11px] text-gray-400 font-medium truncate mt-0.5">
+                        <span className="text-emerald-400/90 font-semibold">WhatsApp:</span> {c.pushName || c.name}
+                      </p>
+                      <p className="text-xs text-emerald-400 font-mono font-medium mt-0.5">{c.phone}</p>
+                      {c.email && <p className="text-[11px] text-gray-400 truncate mt-0.5">{c.email}</p>}
+                    </div>
+                  </div>
+
+                  {/* Technical Identifiers Box */}
+                  <div className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1 text-[10px] text-gray-400 font-mono">
+                    <div className="flex justify-between truncate">
+                      <span className="text-gray-500">JID:</span>
+                      <span className="text-gray-300 truncate max-w-[170px]" title={defaultJid}>{defaultJid}</span>
+                    </div>
+                    <div className="flex justify-between truncate">
+                      <span className="text-gray-500">LID:</span>
+                      <span className="text-gray-300 truncate max-w-[170px]" title={defaultLid}>{defaultLid}</span>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1">
+                    {(c.tags || ['WhatsApp']).map((t, idx) => (
+                      <span key={idx} className="bg-gray-800 text-gray-300 text-[10px] px-2 py-0.5 rounded-md border border-gray-700 font-medium">
+                        {t}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-1">
-                  {(c.tags || ['WhatsApp']).map((t, idx) => (
-                    <span key={idx} className="bg-gray-800 text-gray-300 text-[10px] px-2 py-0.5 rounded-md border border-gray-700">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-
+                {/* Card Actions */}
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
                   <button
                     onClick={() => onStartChatWithContact(c)}
-                    className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-medium py-1.5 rounded-xl border border-emerald-500/30 transition-all cursor-pointer"
+                    className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-medium py-1.5 rounded-xl border border-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    Iniciar Chat
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Atender
+                  </button>
+                  <button
+                    onClick={() => handleOpenEdit(c)}
+                    className="bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-700 transition-all cursor-pointer flex items-center gap-1"
+                    title="Editar Contato"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
+                    Editar
                   </button>
                   <button
                     onClick={() => onDeleteContact(c.id)}
                     className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
+                    title="Excluir Contato"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -154,10 +235,19 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleAddSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-emerald-400" />
-              Novo Contato
-            </h3>
+            <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+              <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-emerald-400" />
+                Cadastrar Novo Contato
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-gray-400 hover:text-gray-200 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="space-y-3 text-xs">
               <div>
@@ -180,12 +270,12 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
                   placeholder="+5511999887766"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-400 mb-1 font-medium">Email (Opcional)</label>
+                <label className="block text-gray-400 mb-1 font-medium">Email</label>
                 <input
                   type="email"
                   placeholder="carlos@empresa.com"
@@ -196,7 +286,7 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 border-t border-gray-800">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
@@ -208,7 +298,124 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
                 type="submit"
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-md shadow-emerald-900/40 cursor-pointer text-xs"
               >
-                Salvar Contato
+                Cadastrar Contato
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Contact Modal */}
+      {isEditModalOpen && editingContact && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleEditSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+              <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-emerald-400" />
+                Editar Contato &amp; Dados
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-gray-400 hover:text-gray-200 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              {/* Read-Only WhatsApp Attributes */}
+              <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-2">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-gray-500">Nome no WhatsApp / PushName (Não editável)</label>
+                  <p className="text-xs text-emerald-400 font-semibold mt-0.5">{editingContact.pushName || editingContact.name}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800 text-[11px]">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500">JID do Cliente (Não editável)</label>
+                    <p className="text-gray-300 font-mono text-[10px] truncate">
+                      {editingContact.jid || `${editingContact.phone.replace(/\D/g, '')}@s.whatsapp.net`}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500">LID do Cliente (Não editável)</label>
+                    <p className="text-gray-300 font-mono text-[10px] truncate">
+                      {editingContact.lid || '1029384756123@lid'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Editable Fields */}
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Nome de Exibição do Cliente</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Telefone / WhatsApp</label>
+                <input
+                  type="text"
+                  required
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">E-mail</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="cliente@empresa.com"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Tags (separadas por vírgula)</label>
+                <input
+                  type="text"
+                  value={editTags}
+                  onChange={(e) => setEditTags(e.target.value)}
+                  placeholder="VIP, Suporte, Vendas"
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-medium">Observações Internas</label>
+                <textarea
+                  rows={3}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Anotações privadas sobre o histórico do cliente..."
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-gray-800">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-xl transition-all border border-gray-700 cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all shadow-md shadow-emerald-900/40 cursor-pointer text-xs"
+              >
+                Salvar Alterações
               </button>
             </div>
           </form>

@@ -622,7 +622,12 @@ export default function App() {
             <ContactsManager
               contacts={contacts}
               onAddContact={(c) => setContacts((prev) => [...prev, c])}
-              onUpdateContact={(c) => setContacts((prev) => prev.map((item) => (item.id === c.id ? c : item)))}
+              onUpdateContact={(updated) => {
+                setContacts((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+                setTickets((prev) =>
+                  prev.map((t) => (t.contact.id === updated.id ? { ...t, contact: updated } : t))
+                );
+              }}
               onDeleteContact={(id) => setContacts((prev) => prev.filter((item) => item.id !== id))}
               onStartChatWithContact={(c) => handleCreateNewChat(c.name, c.phone, queues[0]?.id || 'queue-1')}
             />
@@ -632,7 +637,10 @@ export default function App() {
             <AttendantsManagement
               attendants={attendants}
               departments={departments}
+              queues={queues}
+              connections={connections}
               onAddAttendant={(a) => setAttendants((prev) => [...prev, a])}
+              onUpdateAttendant={(a) => setAttendants((prev) => prev.map((item) => (item.id === a.id ? a : item)))}
               onDeleteAttendant={(id) => setAttendants((prev) => prev.filter((item) => item.id !== id))}
             />
           )}

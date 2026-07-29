@@ -3,6 +3,9 @@ export interface Contact {
   name: string;
   phone: string;
   email?: string;
+  pushName?: string;
+  jid?: string;
+  lid?: string;
   avatar?: string;
   tags?: string[];
   notes?: string;
@@ -60,8 +63,11 @@ export interface Attendant {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: 'admin' | 'supervisor' | 'agent';
   departmentIds: string[];
+  queueIds?: string[];
+  connectionIds?: string[];
   avatar?: string;
   status: 'online' | 'busy' | 'offline';
   maxConcurrentChats?: number;
