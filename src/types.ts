@@ -26,6 +26,8 @@ export interface Ticket {
   unreadCount?: number;
   lastMessageSnippet?: string;
   lastMessageTimestamp?: string;
+  outOfHoursCount?: number;
+  lunchCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +59,19 @@ export interface Queue {
   color: string;
   description?: string;
   botGreeting?: string;
+  // Horário de Funcionamento
+  workingHoursEnabled?: boolean;
+  startTime?: string; // ex: "08:00"
+  endTime?: string; // ex: "18:00"
+  workingDays?: string[]; // ex: ['mon', 'tue', 'wed', 'thu', 'fri']
+  outOfHoursMessage?: string;
+  maxOutOfHoursMessages?: number; // Limite de vezes que manda a mensagem de fora de horário se o cliente insistir (ex: 1, 2, 3...)
+  // Horário de Almoço
+  lunchBreakEnabled?: boolean;
+  lunchStartTime?: string; // ex: "12:00"
+  lunchEndTime?: string; // ex: "13:30"
+  lunchMessage?: string;
+  maxLunchMessages?: number;
 }
 
 export interface Attendant {

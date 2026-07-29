@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { Phone, ArrowRightLeft, CheckCircle2, Lock, Sparkles, User, Tag, Clock, UserPlus, PauseCircle, PlayCircle } from 'lucide-react';
+import { Phone, ArrowRightLeft, CheckCircle2, Lock, Sparkles, User, Tag, Clock, UserPlus, PauseCircle, PlayCircle, Utensils } from 'lucide-react';
 import { Ticket, Message, QuickReply, Queue, Department, Attendant } from '../../types';
+import { checkQueueSchedule } from '../../utils/queueSchedule';
 import { MessageInput } from './MessageInput';
 
 interface ChatWindowProps {
@@ -36,6 +37,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const queue = queues.find((q) => q.id === ticket.queueId);
   const department = departments.find((d) => d.id === ticket.departmentId);
+  const scheduleStatus = checkQueueSchedule(queue);
 
   // Auto scroll to bottom on message
   useEffect(() => {
@@ -81,6 +83,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <span className="text-amber-400 font-mono font-medium">{ticket.contact.phone}</span>
                 <span>•</span>
                 <span className="text-gray-300 font-medium">{queue?.name || 'Fila Geral'}</span>
+                {scheduleStatus.isOut && (
+                  <span className="bg-rose-950 text-rose-300 border border-rose-800 text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Fora do Expediente
+                  </span>
+                )}
+                {scheduleStatus.isLunch && (
+                  <span className="bg-amber-950 text-amber-300 border border-amber-800 text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                    <Utensils className="w-3 h-3" /> Horário de Almoço
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -145,6 +157,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <span className="text-emerald-400 font-mono font-medium">{ticket.contact.phone}</span>
               <span>•</span>
               <span className="text-gray-300 font-medium">{queue?.name || 'Fila Geral'}</span>
+              {scheduleStatus.isOut && (
+                <span className="bg-rose-950 text-rose-300 border border-rose-800 text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Fora do Expediente
+                </span>
+              )}
+              {scheduleStatus.isLunch && (
+                <span className="bg-amber-950 text-amber-300 border border-amber-800 text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
+                  <Utensils className="w-3 h-3" /> Horário de Almoço
+                </span>
+              )}
             </div>
           </div>
         </div>

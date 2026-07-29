@@ -29,6 +29,7 @@ import { ConnectionsManagement } from './components/connections/ConnectionsManag
 import { ContactsManager } from './components/contacts/ContactsManager';
 import { AttendantsManagement } from './components/attendants/AttendantsManagement';
 import { QueuesManagement } from './components/queues/QueuesManagement';
+import { checkQueueSchedule } from './utils/queueSchedule';
 import { QuickRepliesManager } from './components/quickReplies/QuickRepliesManager';
 import { ReportsManager } from './components/reports/ReportsManager';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
@@ -650,6 +651,7 @@ export default function App() {
               queues={queues}
               departments={departments}
               onAddQueue={(q) => setQueues((prev) => [...prev, q])}
+              onUpdateQueue={(updated) => setQueues((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))}
               onDeleteQueue={(id) => setQueues((prev) => prev.filter((item) => item.id !== id))}
             />
           )}

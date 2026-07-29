@@ -8,10 +8,71 @@ export const initialDepartments: Department[] = [
 ];
 
 export const initialQueues: Queue[] = [
-  { id: 'queue-1', name: '1 - Vendas & Novos Clientes', departmentId: 'dept-vendas', color: 'emerald', botGreeting: 'Olá! Você está na fila de Vendas. Um consultor te atenderá em instantes.' },
-  { id: 'queue-2', name: '2 - Suporte Técnico & Relatórios', departmentId: 'dept-suporte', color: 'blue', botGreeting: 'Olá! Você está na fila de Suporte Técnico.' },
-  { id: 'queue-3', name: '3 - Financeiro & Segunda Via PIX', departmentId: 'dept-financeiro', color: 'amber', botGreeting: 'Olá! Você está na fila do Financeiro.' },
-  { id: 'queue-4', name: '4 - Outros Assuntos / Recepção', departmentId: 'dept-geral', color: 'purple', botGreeting: 'Olá! Você está na recepção geral.' }
+  {
+    id: 'queue-1',
+    name: '1 - Vendas & Novos Clientes',
+    departmentId: 'dept-vendas',
+    color: 'emerald',
+    botGreeting: 'Olá! Você está na fila de Vendas. Um consultor te atenderá em instantes.',
+    workingHoursEnabled: true,
+    startTime: '08:00',
+    endTime: '18:00',
+    workingDays: ['mon', 'tue', 'wed', 'thu', 'fri'],
+    outOfHoursMessage: 'Olá! Nosso setor de Vendas atende de Segunda a Sexta das 08:00 às 18:00. Sua mensagem já está salva em nossa fila e responderemos assim que abrirmos.',
+    maxOutOfHoursMessages: 2,
+    lunchBreakEnabled: true,
+    lunchStartTime: '12:00',
+    lunchEndTime: '13:30',
+    lunchMessage: 'Estamos em horário de almoço das 12:00 às 13:30. Seu atendimento permanece em nossa fila e será respondido em breve!',
+    maxLunchMessages: 1
+  },
+  {
+    id: 'queue-2',
+    name: '2 - Suporte Técnico & Relatórios',
+    departmentId: 'dept-suporte',
+    color: 'blue',
+    botGreeting: 'Olá! Você está na fila de Suporte Técnico.',
+    workingHoursEnabled: true,
+    startTime: '08:00',
+    endTime: '20:00',
+    workingDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+    outOfHoursMessage: 'Nosso suporte funciona das 08:00 às 20:00 de Seg a Sáb. Sua solicitação já foi registrada na fila.',
+    maxOutOfHoursMessages: 2,
+    lunchBreakEnabled: true,
+    lunchStartTime: '12:30',
+    lunchEndTime: '13:30',
+    lunchMessage: 'Equipe de suporte em intervalo de almoço das 12:30 às 13:30. Aguarde na fila.',
+    maxLunchMessages: 1
+  },
+  {
+    id: 'queue-3',
+    name: '3 - Financeiro & Segunda Via PIX',
+    departmentId: 'dept-financeiro',
+    color: 'amber',
+    botGreeting: 'Olá! Você está na fila do Financeiro.',
+    workingHoursEnabled: true,
+    startTime: '09:00',
+    endTime: '17:00',
+    workingDays: ['mon', 'tue', 'wed', 'thu', 'fri'],
+    outOfHoursMessage: 'Setor financeiro fechado no momento. Atendimento de Seg a Sex das 09:00 às 17:00. O atendimento continuará registrado na fila.',
+    maxOutOfHoursMessages: 1,
+    lunchBreakEnabled: true,
+    lunchStartTime: '12:00',
+    lunchEndTime: '13:00',
+    lunchMessage: 'Setor financeiro em horário de almoço (12h às 13h). Permanecemos com seu chamado na fila.',
+    maxLunchMessages: 1
+  },
+  {
+    id: 'queue-4',
+    name: '4 - Outros Assuntos / Recepção',
+    departmentId: 'dept-geral',
+    color: 'purple',
+    botGreeting: 'Olá! Você está na recepção geral.',
+    workingHoursEnabled: false,
+    outOfHoursMessage: 'Atendimento recepcional fora de expediente.',
+    maxOutOfHoursMessages: 1,
+    lunchBreakEnabled: false
+  }
 ];
 
 export const initialAttendants: Attendant[] = [
