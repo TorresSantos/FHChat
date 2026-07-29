@@ -53,6 +53,10 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
   const [newConnCompany, setNewConnCompany] = useState('');
   const [newConnPhone, setNewConnPhone] = useState('');
   const [newConnProvider, setNewConnProvider] = useState<'baileys' | 'evolution'>('baileys');
+  const [newMaxAttempts, setNewMaxAttempts] = useState<number>(3);
+  const [newFallbackQueueId, setNewFallbackQueueId] = useState<string>('');
+  const [newTimeoutMinutes, setNewTimeoutMinutes] = useState<number>(10);
+  const [newInactivityQueueId, setNewInactivityQueueId] = useState<string>('');
 
   // Edit Connection Form State
   const [editingConn, setEditingConn] = useState<WhatsAppConnection | null>(null);
@@ -62,6 +66,10 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
   const [editProvider, setEditProvider] = useState<'baileys' | 'evolution'>('baileys');
   const [editBotActive, setEditBotActive] = useState(true);
   const [editIsDefault, setEditIsDefault] = useState(false);
+  const [editMaxAttempts, setEditMaxAttempts] = useState<number>(3);
+  const [editFallbackQueueId, setEditFallbackQueueId] = useState<string>('');
+  const [editTimeoutMinutes, setEditTimeoutMinutes] = useState<number>(10);
+  const [editInactivityQueueId, setEditInactivityQueueId] = useState<string>('');
 
   // Import WhatsApp Chats State
   const [importConn, setImportConn] = useState<WhatsAppConnection | null>(null);
@@ -164,6 +172,10 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
       departmentIds: departments.map((d) => d.id),
       queueIds: queues.map((q) => q.id),
       botActive: true,
+      maxInvalidAttempts: newMaxAttempts,
+      fallbackQueueId: newFallbackQueueId || queues[0]?.id || '',
+      inactivityTimeoutMinutes: newTimeoutMinutes,
+      inactivityQueueId: newInactivityQueueId || queues[0]?.id || '',
       updatedAt: new Date().toISOString()
     };
 
@@ -183,6 +195,10 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
     setEditProvider(conn.provider);
     setEditBotActive(conn.botActive ?? true);
     setEditIsDefault(conn.isDefault ?? false);
+    setEditMaxAttempts(conn.maxInvalidAttempts ?? 3);
+    setEditFallbackQueueId(conn.fallbackQueueId || queues[0]?.id || '');
+    setEditTimeoutMinutes(conn.inactivityTimeoutMinutes ?? 10);
+    setEditInactivityQueueId(conn.inactivityQueueId || queues[0]?.id || '');
   };
 
   // Save Connection Edit Handler
@@ -198,6 +214,10 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
       provider: editProvider,
       botActive: editBotActive,
       isDefault: editIsDefault,
+      maxInvalidAttempts: editMaxAttempts,
+      fallbackQueueId: editFallbackQueueId,
+      inactivityTimeoutMinutes: editTimeoutMinutes,
+      inactivityQueueId: editInactivityQueueId,
       updatedAt: new Date().toISOString()
     };
 
@@ -355,6 +375,22 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
                         {conn.botActive ? 'Ativado' : 'Desativado'}
                       </span>
                     </div>
+                    <div className="pt-2 border-t border-gray-800/60 space-y-1 text-[11px]">
+                      <div className="flex justify-between items-center text-amber-300">
+                        <span>Transbordo Resposta Incorreta:</span>
+                        <span className="font-semibold">
+                          Após {conn.maxInvalidAttempts ?? 3}x &rarr;{' '}
+                          {queues.find((q) => q.id === conn.fallbackQueueId)?.name || 'Fila Geral'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-blue-300">
+                        <span>Transbordo por Inatividade:</span>
+                        <span className="font-semibold">
+                          Após {conn.inactivityTimeoutMinutes ?? 10} min &rarr;{' '}
+                          {queues.find((q) => q.id === conn.inactivityQueueId)?.name || 'Fila Geral'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -473,6 +509,76 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
                   <option value="baileys">Baileys Engine WebSocket (Recomendado)</option>
                   <option value="evolution">Evolution API (REST Proxy)</option>
                 </select>
+              </div>
+
+              {/* Advanced Fallback Rules */}
+              <div className="pt-2 border-t border-gray-800 space-y-3">
+                <h4 className="font-bold text-gray-200 text-xs flex items-center gap-1.5 text-amber-400">
+                  <AlertCircle className="w-4 h-4" />
+                  Regra de Transbordo por Resposta Incorreta
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Tentativas Erradas (X vezes)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={editMaxAttempts}
+                      onChange={(e) => setEditMaxAttempts(Number(e.target.value))}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Fila de Destino</label>
+                    <select
+                      value={editFallbackQueueId}
+                      onChange={(e) => setEditFallbackQueueId(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-blue-500"
+                    >
+                      {queues.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Inactivity Timeout Rules */}
+              <div className="pt-2 border-t border-gray-800 space-y-3">
+                <h4 className="font-bold text-gray-200 text-xs flex items-center gap-1.5 text-blue-400">
+                  <Clock className="w-4 h-4" />
+                  Regra de Transbordo por Inatividade do Cliente
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Sem resposta por (X min)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={editTimeoutMinutes}
+                      onChange={(e) => setEditTimeoutMinutes(Number(e.target.value))}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Fila de Inatividade</label>
+                    <select
+                      value={editInactivityQueueId}
+                      onChange={(e) => setEditInactivityQueueId(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-blue-500"
+                    >
+                      {queues.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-2 space-y-2 border-t border-gray-800">
@@ -847,6 +953,78 @@ export const ConnectionsManagement: React.FC<ConnectionsManagementProps> = ({
                   <option value="baileys">Baileys WebSocket Engine (Recomendado)</option>
                   <option value="evolution">Evolution API (REST Proxy)</option>
                 </select>
+              </div>
+
+              {/* Advanced Fallback Rules */}
+              <div className="pt-2 border-t border-gray-800 space-y-3">
+                <h4 className="font-bold text-gray-200 text-xs flex items-center gap-1.5 text-amber-400">
+                  <AlertCircle className="w-4 h-4" />
+                  Transbordo por Resposta Incorreta (Sem Fila)
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Tentativas Erradas (X vezes)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={newMaxAttempts}
+                      onChange={(e) => setNewMaxAttempts(Number(e.target.value))}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Fila de Destino</label>
+                    <select
+                      value={newFallbackQueueId}
+                      onChange={(e) => setNewFallbackQueueId(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="">Selecione a fila...</option>
+                      {queues.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Inactivity Timeout Rules */}
+              <div className="pt-2 border-t border-gray-800 space-y-3">
+                <h4 className="font-bold text-gray-200 text-xs flex items-center gap-1.5 text-blue-400">
+                  <Clock className="w-4 h-4" />
+                  Transbordo por Inatividade
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Sem resposta por (X min)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={newTimeoutMinutes}
+                      onChange={(e) => setNewTimeoutMinutes(Number(e.target.value))}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 mb-1 text-[11px]">Fila de Destino</label>
+                    <select
+                      value={newInactivityQueueId}
+                      onChange={(e) => setNewInactivityQueueId(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="">Selecione a fila...</option>
+                      {queues.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 

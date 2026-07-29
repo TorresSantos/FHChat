@@ -201,8 +201,12 @@ export const ChatList: React.FC<ChatListProps> = ({
 
                   <div className="flex items-center justify-between gap-1">
                     {/* Queue Tag */}
-                    <span className="inline-block text-[10px] bg-emerald-500/10 text-emerald-400 font-medium px-2 py-0.5 rounded-md truncate max-w-[140px] border border-emerald-500/20">
-                      {queue ? queue.name : 'Fila Geral'}
+                    <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-md truncate max-w-[150px] border ${
+                      queue
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    }`}>
+                      {queue ? queue.name : 'Sem Fila'}
                     </span>
 
                     {/* Resolved status or Unread badge or Accept button */}

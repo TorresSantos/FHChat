@@ -1,16 +1,33 @@
-import React from 'react';
-import { LogOut, User, Bell, Radio, ShieldCheck, Sparkles } from 'lucide-react';
-import { Attendant, WhatsAppConnection } from '../types';
+import React, { useState } from 'react';
+import { LogOut, User, Bell, Radio, ShieldCheck, Sparkles, Lock, Check, X, AlertCircle } from 'lucide-react';
+import { Attendant, WhatsAppConnection, AuthorizationRequest } from '../types';
 
 interface HeaderProps {
   currentAttendant: Attendant;
   connections: WhatsAppConnection[];
   onLogout: () => void;
   activeTab: string;
+  authorizationRequests?: AuthorizationRequest[];
+  onApproveAuthorization?: (requestId: string) => void;
+  onRejectAuthorization?: (requestId: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentAttendant, connections, onLogout, activeTab }) => {
+export const Header: React.FC<HeaderProps> = ({
+  currentAttendant,
+  connections,
+  onLogout,
+  activeTab,
+  authorizationRequests = [],
+  onApproveAuthorization,
+  onRejectAuthorization
+}) => {
   const activeBaileys = connections.find((c) => c.provider === 'baileys' && c.status === 'connected');
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
+  // Filter requests targeted at current attendant that are pending
+  const myPendingRequests = authorizationRequests.filter(
+    (r) => r.targetAttendantId === currentAttendant.id && r.status === 'pending'
+  );
 
   return (
     <header className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between shrink-0">
@@ -38,6 +55,73 @@ export const Header: React.FC<HeaderProps> = ({ currentAttendant, connections, o
           <span className="text-gray-300 font-medium">
             {activeBaileys ? `Baileys Online: ${activeBaileys.phone}` : 'Baileys: Aguardando QR'}
           </span>
+        </div>
+
+        {/* Notifications Bell for Authorization Requests */}
+        <div className="relative">
+          <button
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-all relative cursor-pointer border border-gray-800"
+            title="Notificações de Autorização"
+          >
+            <Bell className="w-4 h-4 text-amber-400" />
+            {myPendingRequests.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-gray-900">
+                {myPendingRequests.length}
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown Menu */}
+          {isNotifOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl z-50 p-3 space-y-2">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+                <span className="text-xs font-bold text-gray-200 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  Solicitações de Acesso a Protocolos
+                </span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                  {myPendingRequests.length} pendente(s)
+                </span>
+              </div>
+
+              {myPendingRequests.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-xs">
+                  Nenhuma solicitação de autorização pendente.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {myPendingRequests.map((req) => (
+                    <div key={req.id} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800 space-y-1.5 text-xs">
+                      <p className="text-gray-300 leading-tight">
+                        <strong className="text-amber-300">{req.requesterAttendantName}</strong> solicitou liberação para visualizar a conversa do protocolo <strong className="font-mono text-emerald-400">#{req.protocol}</strong> ({req.contactName}).
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            onApproveAuthorization?.(req.id);
+                          }}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] py-1 px-2 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Check className="w-3 h-3" />
+                          Autorizar Acesso
+                        </button>
+                        <button
+                          onClick={() => {
+                            onRejectAuthorization?.(req.id);
+                          }}
+                          className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium text-[10px] py-1 px-2 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer border border-gray-700"
+                        >
+                          <X className="w-3 h-3 text-rose-400" />
+                          Negar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* User Info */}

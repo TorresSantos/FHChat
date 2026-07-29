@@ -57,6 +57,7 @@ export default function App() {
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(initialQuickReplies);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [authorizationRequests, setAuthorizationRequests] = useState<AuthorizationRequest[]>([]);
 
   // Selected Chat & Filters
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -71,6 +72,35 @@ export default function App() {
 
   // Track processed Baileys message IDs to prevent duplicates
   const processedBaileysMsgIdsRef = useRef<Set<string>>(new Set());
+
+  // Periodical Inactivity Timeout Checker (Transbordo por inatividade de X minutos)
+  useEffect(() => {
+    const inactivityInterval = setInterval(() => {
+      setTickets((prevTickets) => {
+        const nowMs = Date.now();
+        return prevTickets.map((t) => {
+          if ((t.status === 'pending' || t.status === 'waiting') && (!t.queueId || t.queueId === '')) {
+            const conn = connections.find((c) => c.id === t.connectionId || c.baileysSessionId === t.connectionId) || connections[0];
+            const timeoutMin = conn?.inactivityTimeoutMinutes ?? 10;
+            const updatedMs = new Date(t.updatedAt || t.createdAt).getTime();
+            const elapsedMin = (nowMs - updatedMs) / 60000;
+
+            if (elapsedMin >= timeoutMin) {
+              const targetQ = conn?.inactivityQueueId || queues[0]?.id || 'queue-1';
+              return {
+                ...t,
+                queueId: targetQ,
+                updatedAt: new Date().toISOString()
+              };
+            }
+          }
+          return t;
+        });
+      });
+    }, 15000);
+
+    return () => clearInterval(inactivityInterval);
+  }, [connections, queues]);
 
   // Real-time Baileys incoming message sync effect
   useEffect(() => {
@@ -123,7 +153,6 @@ export default function App() {
                 };
                 return [...prevContacts, existing];
               } else {
-                // Update avatar if received real WhatsApp profile pic
                 if (msg.avatarUrl && existing.avatar !== msg.avatarUrl) {
                   return prevContacts.map((c) =>
                     c.id === existing!.id ? { ...c, avatar: msg.avatarUrl || undefined } : c
@@ -136,35 +165,60 @@ export default function App() {
             // 2. Find contact instance for ticket binding
             const contactId = 'cont-' + cleanPhone;
 
-            // Determine queue based on text option 1, 2, 3, 4
-            let queueId = 'queue-1';
-            let deptId = 'dept-vendas';
+            // Determine option digit selection (1, 2, 3, 4)
+            let selectedQueueIdFromBot = '';
+            let selectedDeptIdFromBot = '';
+            let isOptionChosen = false;
             const optionDigit = text.trim();
+
             if (optionDigit === '1') {
-              queueId = 'queue-1';
-              deptId = 'dept-vendas';
+              selectedQueueIdFromBot = 'queue-1';
+              selectedDeptIdFromBot = 'dept-vendas';
+              isOptionChosen = true;
             } else if (optionDigit === '2') {
-              queueId = 'queue-2';
-              deptId = 'dept-suporte';
+              selectedQueueIdFromBot = 'queue-2';
+              selectedDeptIdFromBot = 'dept-suporte';
+              isOptionChosen = true;
             } else if (optionDigit === '3') {
-              queueId = 'queue-3';
-              deptId = 'dept-financeiro';
+              selectedQueueIdFromBot = 'queue-3';
+              selectedDeptIdFromBot = 'dept-financeiro';
+              isOptionChosen = true;
             } else if (optionDigit === '4') {
-              queueId = 'queue-4';
-              deptId = 'dept-geral';
+              selectedQueueIdFromBot = 'queue-4';
+              selectedDeptIdFromBot = 'dept-geral';
+              isOptionChosen = true;
             }
+
+            const activeConn = connections.find((c) => c.baileysSessionId === sess.sessionId) || connections[0];
+            const maxAttempts = activeConn?.maxInvalidAttempts ?? 3;
+            const fallbackQ = activeConn?.fallbackQueueId || queues[0]?.id || 'queue-1';
 
             // 3. Update or create TICKET for this contact
             let targetTicketId = '';
 
             setTickets((prevTickets) => {
-              // Look up active ticket by contact phone / contact ID!
               const existingTicket = prevTickets.find(
                 (t) => t.contact.phone.replace(/\D/g, '') === cleanPhone && t.status !== 'resolved'
               );
 
               if (existingTicket) {
                 targetTicketId = existingTicket.id;
+                let newQ = existingTicket.queueId;
+                let newDept = existingTicket.departmentId;
+                let newAttempts = existingTicket.invalidChoiceAttempts || 0;
+
+                if (isOptionChosen) {
+                  newQ = selectedQueueIdFromBot;
+                  newDept = selectedDeptIdFromBot;
+                  newAttempts = 0;
+                } else if (!msg.fromMe && (!existingTicket.queueId || existingTicket.queueId === '')) {
+                  newAttempts += 1;
+                  if (newAttempts >= maxAttempts) {
+                    newQ = fallbackQ;
+                    newAttempts = 0;
+                  }
+                }
+
                 return prevTickets.map((t) =>
                   t.id === existingTicket.id
                     ? {
@@ -174,8 +228,9 @@ export default function App() {
                           ...t.contact,
                           avatar: msg.avatarUrl || t.contact.avatar
                         },
-                        queueId: (optionDigit >= '1' && optionDigit <= '4') ? queueId : t.queueId,
-                        departmentId: (optionDigit >= '1' && optionDigit <= '4') ? deptId : t.departmentId,
+                        queueId: newQ,
+                        departmentId: newDept,
+                        invalidChoiceAttempts: newAttempts,
                         lastMessageSnippet: text,
                         lastMessageTimestamp: timeStr,
                         unreadCount: (!msg.fromMe && selectedTicketId !== t.id) ? (t.unreadCount || 0) + 1 : t.unreadCount,
@@ -184,7 +239,7 @@ export default function App() {
                     : t
                 );
               } else {
-                // Create single new ticket for this contact!
+                // Create new ticket for this contact!
                 targetTicketId = 'tick-' + cleanPhone + '-' + Date.now();
                 const newContact: Contact = {
                   id: contactId,
@@ -195,13 +250,17 @@ export default function App() {
                   createdAt: new Date().toISOString()
                 };
 
+                const initialQ = isOptionChosen ? selectedQueueIdFromBot : '';
+                const initialDept = isOptionChosen ? selectedDeptIdFromBot : '';
+
                 const newTicket: Ticket = {
                   id: targetTicketId,
                   protocol: '2026' + Math.floor(100000 + Math.random() * 900000),
                   contactId: newContact.id,
                   contact: newContact,
-                  departmentId: deptId,
-                  queueId: queueId,
+                  departmentId: initialDept,
+                  queueId: initialQ,
+                  invalidChoiceAttempts: (!isOptionChosen && !msg.fromMe) ? 1 : 0,
                   status: 'pending',
                   priority: 'medium',
                   connectionId: sess.sessionId,
@@ -406,7 +465,7 @@ export default function App() {
     );
   };
 
-  const handleCloseTicket = (reason?: string, sendSurvey?: boolean) => {
+  const handleCloseTicket = (reason?: string, sendSurvey?: boolean, isProtected?: boolean, password?: string) => {
     if (!selectedTicketId) return;
     const targetId = selectedTicketId;
     const currentTicket = tickets.find((t) => t.id === targetId);
@@ -424,7 +483,7 @@ export default function App() {
             sender: 'system',
             senderName: 'Sistema',
             type: 'text',
-            content: `Atendimento encerrado por ${currentAttendant.name}. Resumo: ${reason}`,
+            content: `Atendimento encerrado por ${currentAttendant.name}. Resumo: ${reason}${isProtected ? ' [Histórico Protegido]' : ''}`,
             timestamp: timeStr,
             status: 'delivered',
             isInternalNote: true
@@ -448,17 +507,88 @@ export default function App() {
       }).catch((e) => console.error('[Baileys Survey Error]', e));
     }
 
-    // Set ticket status to resolved
+    // Set ticket status to resolved and record protection parameters
     setTickets((prev) =>
       prev.map((t) =>
         t.id === targetId
-          ? { ...t, status: 'resolved', updatedAt: new Date().toISOString() }
+          ? {
+              ...t,
+              status: 'resolved',
+              isProtected: isProtected || false,
+              protectPassword: password || undefined,
+              originalAttendantId: currentAttendant.id,
+              originalAttendantName: currentAttendant.name,
+              unlockedByAttendants: [currentAttendant.id],
+              updatedAt: new Date().toISOString()
+            }
           : t
       )
     );
 
     // Automatically switch filter tab to 'closed' so the closed ticket is listed in "Fechados"
     setFilterTab('closed');
+  };
+
+  const handleRequestAuthorization = (ticketId: string, protocol: string, targetAttendantId: string, targetAttendantName: string) => {
+    const req: AuthorizationRequest = {
+      id: 'req-' + Date.now(),
+      ticketId,
+      protocol,
+      contactName: tickets.find((t) => t.id === ticketId)?.contact.name || 'Cliente',
+      requesterAttendantId: currentAttendant.id,
+      requesterAttendantName: currentAttendant.name,
+      targetAttendantId,
+      targetAttendantName,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    setAuthorizationRequests((prev) => [...prev, req]);
+  };
+
+  const handleApproveAuthorization = (requestId: string) => {
+    const req = authorizationRequests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    setAuthorizationRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'approved' } : r))
+    );
+
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === req.ticketId
+          ? {
+              ...t,
+              unlockedByAttendants: Array.from(new Set([...(t.unlockedByAttendants || []), req.requesterAttendantId]))
+            }
+          : t
+      )
+    );
+  };
+
+  const handleRejectAuthorization = (requestId: string) => {
+    setAuthorizationRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'rejected' } : r))
+    );
+  };
+
+  const handleUnlockWithPassword = (ticketId: string, passwordAttempt: string): boolean => {
+    const target = tickets.find((t) => t.id === ticketId);
+    if (!target) return false;
+
+    if (target.protectPassword && target.protectPassword === passwordAttempt) {
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId
+            ? {
+                ...t,
+                unlockedByAttendants: Array.from(new Set([...(t.unlockedByAttendants || []), currentAttendant.id]))
+              }
+            : t
+        )
+      );
+      return true;
+    }
+    return false;
   };
 
   const handleReopenTicket = (ticketId?: string) => {
@@ -527,6 +657,9 @@ export default function App() {
         connections={connections}
         onLogout={() => setIsAuthenticated(false)}
         activeTab={activeTab}
+        authorizationRequests={authorizationRequests}
+        onApproveAuthorization={handleApproveAuthorization}
+        onRejectAuthorization={handleRejectAuthorization}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -572,6 +705,11 @@ export default function App() {
                     queues={queues}
                     departments={departments}
                     attendants={attendants}
+                    currentAttendant={currentAttendant}
+                    allTicketsForContact={tickets.filter((t) => t.contact.id === activeTicket.contact.id)}
+                    allMessagesStore={messages}
+                    onRequestAuthorization={handleRequestAuthorization}
+                    onUnlockWithPassword={handleUnlockWithPassword}
                     onOpenTransferModal={() => setIsTransferModalOpen(true)}
                     onOpenCloseTicketModal={() => setIsCloseTicketModalOpen(true)}
                     onReopenTicket={() => handleReopenTicket(activeTicket.id)}

@@ -28,6 +28,13 @@ export interface Ticket {
   lastMessageTimestamp?: string;
   outOfHoursCount?: number;
   lunchCount?: number;
+  invalidChoiceAttempts?: number;
+  // Proteção de Senha/Cadeado por Protocolo
+  isProtected?: boolean;
+  protectPassword?: string;
+  originalAttendantId?: string;
+  originalAttendantName?: string;
+  unlockedByAttendants?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -104,7 +111,25 @@ export interface WhatsAppConnection {
   queueIds: string[];
   isDefault?: boolean;
   botActive?: boolean;
+  // Regras de Transbordo de Fila e Inatividade
+  maxInvalidAttempts?: number;
+  fallbackQueueId?: string;
+  inactivityTimeoutMinutes?: number;
+  inactivityQueueId?: string;
   updatedAt: string;
+}
+
+export interface AuthorizationRequest {
+  id: string;
+  ticketId: string;
+  protocol: string;
+  contactName: string;
+  requesterAttendantId: string;
+  requesterAttendantName: string;
+  targetAttendantId: string;
+  targetAttendantName?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
 }
 
 export interface QuickReply {
